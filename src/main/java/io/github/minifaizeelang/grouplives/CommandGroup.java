@@ -163,7 +163,7 @@ public class CommandGroup extends CommandBase {
                     throw new CommandException("No group named " + args[1] + " exists.");
                 }
                 TextFormatting color = parseColor(args[2]);
-                GroupManager.applyStyle(team, team.getName(), color);
+                GroupManager.applyStyle(server, team, team.getName(), color);
                 Msg.send(sender, TextFormatting.GREEN, "Color of " + team.getName() + " updated.");
                 return;
             }

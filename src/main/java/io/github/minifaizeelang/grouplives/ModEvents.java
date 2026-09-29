@@ -2,7 +2,10 @@ package io.github.minifaizeelang.grouplives;
 
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.scoreboard.ScorePlayerTeam;
+import net.minecraft.util.text.TextComponentString;
 import net.minecraft.util.text.TextFormatting;
+import net.minecraftforge.event.ServerChatEvent;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
@@ -21,6 +24,34 @@ public final class ModEvents {
         }
         EntityPlayerMP player = (EntityPlayerMP) event.player;
         LivesManager.onLogin(player.mcServer, player);
+        GroupManager.sendAllTabNamesTo(player.mcServer, player);
+        GroupManager.updateTabName(player.mcServer, player);
+    }
+
+    /**
+     * Rebuilds player chat as "[Tag] Nickname: message" with the group color -
+     * vanilla 1.12.2 chat does not render team prefixes on its own.
+     */
+    @SubscribeEvent
+    public static void onServerChat(ServerChatEvent event) {
+        EntityPlayerMP player = event.getPlayer();
+        if (player.world.isRemote) {
+            return;
+        }
+        ScorePlayerTeam team = GroupManager.scoreboard(player.mcServer).getPlayersTeam(player.getName());
+        if (team == null) {
+            return;
+        }
+        TextFormatting color = team.getColor() == null ? TextFormatting.WHITE : team.getColor();
+        TextComponentString tag = new TextComponentString(String.format(ModConfig.groupPrefixFormat, team.getName()));
+        tag.getStyle().setColor(color);
+        TextComponentString name = new TextComponentString(player.getName());
+        name.getStyle().setColor(color);
+        TextComponentString line = new TextComponentString("");
+        line.appendSibling(tag);
+        line.appendSibling(name);
+        line.appendSibling(new TextComponentString(": " + event.getMessage()));
+        event.setComponent(line);
     }
 
     @SubscribeEvent

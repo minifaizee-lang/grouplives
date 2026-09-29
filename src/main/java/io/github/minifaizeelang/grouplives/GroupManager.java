@@ -9,6 +9,7 @@ import net.minecraft.util.text.ITextComponent;
 import net.minecraft.util.text.TextComponentString;
 import net.minecraft.util.text.TextFormatting;
 
+import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -136,7 +137,29 @@ public final class GroupManager {
 
     // ------------------------------------------------------------------
     // Tab list display names
+    //
+    // The "action" and "players" fields on SPacketPlayerListItem are private,
+    // and access transformers shipped in the mod jar are not applied by every
+    // 1.12.2 runtime, so they are resolved by reflection under both names
+    // they can carry: "action"/"players" in a development environment and
+    // "field_179770_a"/"field_179769_b" in a production one.
     // ------------------------------------------------------------------
+
+    private static final Field TAB_PACKET_ACTION = findPacketField("action", "field_179770_a");
+    private static final Field TAB_PACKET_ENTRIES = findPacketField("players", "field_179769_b");
+    private static boolean tabPacketWarned = false;
+
+    private static Field findPacketField(String devName, String runtimeName) {
+        for (String name : new String[]{devName, runtimeName}) {
+            try {
+                Field field = SPacketPlayerListItem.class.getDeclaredField(name);
+                field.setAccessible(true);
+                return field;
+            } catch (NoSuchFieldException ignored) {
+            }
+        }
+        return null;
+    }
 
     /** Group tag followed by the nickname, both in the team color. */
     public static ITextComponent buildTabName(MinecraftServer server, EntityPlayerMP player) {
@@ -157,36 +180,75 @@ public final class GroupManager {
     }
 
     /** Pushes one player's custom tab entry to everyone online. */
-    public static void updateTabName(MinecraftServer server, String playerName) {
-        EntityPlayerMP player = server.getPlayerList().getPlayerByUsername(playerName);
-        if (player != null) {
-            updateTabName(server, player);
-        }
-    }
-
     public static void updateTabName(MinecraftServer server, EntityPlayerMP player) {
-        SPacketPlayerListItem packet = new SPacketPlayerListItem();
-        packet.action = SPacketPlayerListItem.Action.UPDATE_DISPLAY_NAME;
-        packet.players.add(packet.new AddPlayerData(
-                player.getGameProfile(),
-                player.ping,
-                player.interactionManager.getGameType(),
-                buildTabName(server, player)));
-        server.getPlayerList().sendPacketToAllPlayers(packet);
+        SPacketPlayerListItem packet = buildDisplayPacket(server, player);
+        if (packet != null) {
+            server.getPlayerList().sendPacketToAllPlayers(packet);
+        }
     }
 
     /** Pushes every online player's custom tab entry to one player (used right after login). */
     public static void sendAllTabNamesTo(MinecraftServer server, EntityPlayerMP recipient) {
         SPacketPlayerListItem packet = new SPacketPlayerListItem();
-        packet.action = SPacketPlayerListItem.Action.UPDATE_DISPLAY_NAME;
-        for (EntityPlayerMP online : server.getPlayerList().getPlayers()) {
-            packet.players.add(packet.new AddPlayerData(
-                    online.getGameProfile(),
-                    online.ping,
-                    online.interactionManager.getGameType(),
-                    buildTabName(server, online)));
+        if (TAB_PACKET_ACTION == null || TAB_PACKET_ENTRIES == null) {
+            warnOnce();
+            return;
         }
-        recipient.connection.sendPacket(packet);
+        try {
+            TAB_PACKET_ACTION.set(packet, SPacketPlayerListItem.Action.UPDATE_DISPLAY_NAME);
+            @SuppressWarnings("unchecked")
+            List<SPacketPlayerListItem.AddPlayerData> entries =
+                    (List<SPacketPlayerListItem.AddPlayerData>) TAB_PACKET_ENTRIES.get(packet);
+            for (EntityPlayerMP online : server.getPlayerList().getPlayers()) {
+                entries.add(packet.new AddPlayerData(
+                        online.getGameProfile(),
+                        online.ping,
+                        online.interactionManager.getGameType(),
+                        buildTabName(server, online)));
+            }
+            recipient.connection.sendPacket(packet);
+        } catch (Throwable t) {
+            GroupLivesMod.log().warn("Failed to send tab list display names", t);
+        }
+    }
+
+    private static SPacketPlayerListItem buildDisplayPacket(MinecraftServer server, EntityPlayerMP player) {
+        if (TAB_PACKET_ACTION == null || TAB_PACKET_ENTRIES == null) {
+            warnOnce();
+            return null;
+        }
+        try {
+            SPacketPlayerListItem packet = new SPacketPlayerListItem();
+            TAB_PACKET_ACTION.set(packet, SPacketPlayerListItem.Action.UPDATE_DISPLAY_NAME);
+            @SuppressWarnings("unchecked")
+            List<SPacketPlayerListItem.AddPlayerData> entries =
+                    (List<SPacketPlayerListItem.AddPlayerData>) TAB_PACKET_ENTRIES.get(packet);
+            entries.add(packet.new AddPlayerData(
+                    player.getGameProfile(),
+                    player.ping,
+                    player.interactionManager.getGameType(),
+                    buildTabName(server, player)));
+            return packet;
+        } catch (Throwable t) {
+            GroupLivesMod.log().warn("Failed to build tab list display name packet", t);
+            return null;
+        }
+    }
+
+    private static void warnOnce() {
+        if (!tabPacketWarned) {
+            tabPacketWarned = true;
+            GroupLivesMod.log().warn("Cannot customize tab list names: SPacketPlayerListItem fields unavailable. "
+                    + "Falling back to plain team prefixes.");
+        }
+    }
+
+    /** Pushes one player's custom tab entry, looked up by name (offline players are skipped). */
+    public static void updateTabName(MinecraftServer server, String playerName) {
+        EntityPlayerMP player = server.getPlayerList().getPlayerByUsername(playerName);
+        if (player != null) {
+            updateTabName(server, player);
+        }
     }
 
     private static void updateTabNames(MinecraftServer server, ScorePlayerTeam team) {

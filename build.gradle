@@ -13,7 +13,7 @@ apply plugin: 'net.minecraftforge.gradle'
 apply plugin: 'eclipse'
 apply plugin: 'maven-publish'
 
-version = '0.1.1'
+version = '0.1.2'
 group = 'io.github.minifaizeelang.grouplives'
 archivesBaseName = 'grouplives'
 
@@ -29,7 +29,9 @@ minecraft {
     mappings channel: 'snapshot', version: '20171003-1.12'
     // makeObfSourceJar = false // an Srg named sources jar is made by default. uncomment this to disable.
     
-    accessTransformer = file('src/main/resources/META-INF/accesstransformer.cfg')
+    // accessTransformer is not used: runtime ATs are unreliable across 1.12.2
+    // launchers, the tab-name packet fields are accessed via reflection instead.
+
 
     // Default run configurations.
     // These can be tweaked, removed, or duplicated as needed.

@@ -1,0 +1,16 @@
+[
+{
+  "modid": "grouplives",
+  "name": "Groups & Lives",
+  "description": "Player groups with a colored prefix shown in the tab list and chat, plus a limited-lives system: players get a configurable number of lives and are eliminated (spectator or ban) when they run out.",
+  "version": "${version}",
+  "mcversion": "${mcversion}",
+  "url": "",
+  "updateUrl": "",
+  "authorList": ["minifaizee-lang"],
+  "credits": "",
+  "logoFile": "",
+  "screenshots": [],
+  "dependencies": []
+}
+]

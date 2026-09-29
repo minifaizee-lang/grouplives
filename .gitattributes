@@ -1,0 +1,13 @@
+# Normalize line endings: text files are LF in the repository, except
+# Windows batch scripts which must keep CRLF. The Gradle wrapper script
+# must stay LF or the Linux CI build fails.
+* text=auto
+*.bat text eol=crlf
+*.cmd text eol=crlf
+gradlew text eol=lf
+
+# Binary files
+*.jar binary
+*.png binary
+*.zip binary
+*.exe binary

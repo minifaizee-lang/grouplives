@@ -1,0 +1,70 @@
+# Groups & Lives (Minecraft 1.12.2, Forge)
+
+A server-side mod that adds:
+
+1. **Groups** — players can be organized into named groups with a colored
+   prefix, shown before their name in the **tab list**, **chat** and above
+   their head.
+2. **Limited lives** — every player starts with a configurable number of
+   lives (default **3**). Each death costs one life. A player who runs out
+   of lives is **eliminated**: they become a spectator (or get kicked —
+   configurable) and can only come back if an operator revives them.
+
+Players only need Forge on their client — the mod itself is server-side.
+
+## Installation
+
+1. Install [Forge 1.12.2-14.23.5.2860](https://files.minecraftforge.net/net/minecraftforge/forge/index_1.12.2.html) on your server (or single-player/LAN world).
+2. Drop the mod jar into the `mods` folder.
+3. Start the server once; a config file `config/grouplives.cfg` is generated.
+
+## Commands
+
+### Groups — `/group`
+
+| Command | Who | Effect |
+|---|---|---|
+| `/group create <name> [color]` | op (or everyone, see config) | Create a group, e.g. `/group create Red red` |
+| `/group delete <name>` | op | Delete a group |
+| `/group join <name>` | everyone (config) | Join a group |
+| `/group leave` | everyone (config) | Leave your group |
+| `/group add <player> <name>` | op | Put a player into a group |
+| `/group remove <player>` | op | Remove a player from their group |
+| `/group list` | everyone | List all groups |
+| `/group info <name>` | everyone | List members of a group |
+| `/group color <name> <color>` | op | Change a group's color (e.g. `gold`, `dark_purple`) |
+
+### Lives — `/lives`
+
+| Command | Who | Effect |
+|---|---|---|
+| `/lives` | everyone | Show your remaining lives |
+| `/lives get <player>` | everyone | Show someone's lives |
+| `/lives list` | everyone | Show everyone's lives |
+| `/lives set <player> <n>` | op | Set a player's lives |
+| `/lives give <player> <n>` | op | Give extra lives |
+| `/lives take <player> <n>` | op | Remove lives |
+| `/lives revive <player>` | op | Refill lives and return an eliminated player to the game |
+
+## Config (`config/grouplives.cfg`)
+
+| Option | Default | Meaning |
+|---|---|---|
+| `maxLives` | `3` | Lives a player starts with |
+| `eliminationMode` | `spectator` | `spectator` (watch only) or `ban` (kicked, cannot rejoin until revived) |
+| `showLivesInTab` | `true` | Show the life count next to names in the tab list |
+| `playersCanCreateGroups` | `false` | Whether non-ops can create groups |
+| `playersCanJoinLeaveFreely` | `true` | Whether non-ops can join/leave groups |
+| `groupPrefixFormat` | `[%s] ` | Prefix template, `%s` = group name |
+
+## Building from source
+
+Any machine with JDK 8: `./gradlew build` — the jar appears in `build/libs/`.
+
+Pushing to `main` triggers a build in GitHub Actions (Artifacts tab).
+Pushing a tag like `v0.1.0` builds **and publishes a GitHub Release** with
+the jar attached — that is the easiest way to download the finished mod.
+
+## Credits
+
+Built with Forge 1.12.2-14.23.5.2860.

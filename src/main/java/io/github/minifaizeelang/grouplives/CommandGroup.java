@@ -4,6 +4,7 @@ import net.minecraft.command.CommandBase;
 import net.minecraft.command.CommandException;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.command.WrongUsageException;
+import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.scoreboard.ScorePlayerTeam;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.math.BlockPos;
@@ -59,7 +60,10 @@ public class CommandGroup extends CommandBase {
                 if (GroupManager.create(server, name, color) == null) {
                     throw new CommandException("A group named " + name + " already exists.");
                 }
-                Msg.send(sender, TextFormatting.GREEN, "Group created: " + name);
+                if (sender instanceof EntityPlayerMP) {
+                    GroupManager.join(server, sender.getName(), name);
+                }
+                Msg.send(sender, TextFormatting.GREEN, "Group created: " + name + " (you joined it)");
                 return;
             }
             case "delete": {

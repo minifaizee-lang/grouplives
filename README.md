@@ -24,7 +24,7 @@ Players only need Forge on their client — the mod itself is server-side.
 
 | Command | Who | Effect |
 |---|---|---|
-| `/group create <name> [color]` | op (or everyone, see config) | Create a group, e.g. `/group create Red red` |
+| `/group create <name> [color]` | op (or everyone, see config) | Create a group and join it automatically, e.g. `/group create Red red` |
 | `/group delete <name>` | op | Delete a group |
 | `/group join <name>` | everyone (config) | Join a group |
 | `/group leave` | everyone (config) | Leave your group |

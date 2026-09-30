@@ -137,6 +137,14 @@ public final class GroupManager {
         return out;
     }
 
+    /** True if both players are online members of the same group. */
+    public static boolean areTeammates(MinecraftServer server, String playerA, String playerB) {
+        Scoreboard sb = scoreboard(server);
+        ScorePlayerTeam teamA = sb.getPlayersTeam(playerA);
+        ScorePlayerTeam teamB = sb.getPlayersTeam(playerB);
+        return teamA != null && teamA.isSameTeam(teamB);
+    }
+
     /** Re-applies the current prefix format to every existing group (called at server start; heals data from older versions). */
     public static void reapplyAllStyles(MinecraftServer server) {
         for (ScorePlayerTeam team : scoreboard(server).getTeams()) {

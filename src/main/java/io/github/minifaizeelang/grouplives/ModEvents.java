@@ -7,9 +7,12 @@ import net.minecraft.util.text.TextComponentString;
 import net.minecraft.util.text.TextFormatting;
 import net.minecraftforge.event.ServerChatEvent;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
+import net.minecraftforge.event.entity.living.LivingHurtEvent;
+import net.minecraftforge.fml.common.FMLCommonHandler;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.PlayerEvent;
+import net.minecraftforge.fml.common.gameevent.TickEvent;
 
 @Mod.EventBusSubscriber(modid = GroupLivesMod.MODID)
 public final class ModEvents {
@@ -75,5 +78,34 @@ public final class ModEvents {
         }
         EntityPlayerMP player = (EntityPlayerMP) event.player;
         LivesManager.onRespawn(player.mcServer, player);
+    }
+
+    /** Drives the /tpa countdown. */
+    @SubscribeEvent
+    public static void onServerTick(TickEvent.ServerTickEvent event) {
+        if (event.phase == TickEvent.Phase.END) {
+            MinecraftServer server = FMLCommonHandler.instance().getMinecraftServerInstance();
+            if (server != null) {
+                TeleportManager.tick(server);
+            }
+        }
+    }
+
+    /** Taking damage cancels a pending /tpa teleport. */
+    @SubscribeEvent
+    public static void onHurt(LivingHurtEvent event) {
+        if (event.getEntity().world.isRemote || !(event.getEntity() instanceof EntityPlayerMP)) {
+            return;
+        }
+        TeleportManager.cancelIfWarmingUp((EntityPlayerMP) event.getEntity(), "you took damage");
+    }
+
+    /** Drops requests and countdowns when someone leaves. */
+    @SubscribeEvent
+    public static void onLogout(PlayerEvent.PlayerLoggedOutEvent event) {
+        if (!(event.player instanceof EntityPlayerMP) || event.player.world.isRemote) {
+            return;
+        }
+        TeleportManager.onLogout((EntityPlayerMP) event.player);
     }
 }

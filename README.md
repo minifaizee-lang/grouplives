@@ -46,6 +46,17 @@ Players only need Forge on their client — the mod itself is server-side.
 | `/lives take <player> <n>` | op | Remove lives |
 | `/lives revive <player>` | op | Refill lives and return an eliminated player to the game |
 
+### Teleports — teammates only
+
+| Command | Who | Effect |
+|---|---|---|
+| `/tpa <player>` | everyone | Ask a group member for permission to teleport to them |
+| `/tpaccept [player]` | everyone | Accept a request; the requester teleports after a 5 second countdown |
+| `/tpdeny [player]` | everyone | Refuse a request |
+
+Requests expire after 60 seconds. Taking damage during the countdown cancels
+the teleport. Warmup and request timeout are configurable.
+
 ## Config (`config/grouplives.cfg`)
 
 | Option | Default | Meaning |
@@ -56,6 +67,8 @@ Players only need Forge on their client — the mod itself is server-side.
 | `playersCanCreateGroups` | `false` | Whether non-ops can create groups |
 | `playersCanJoinLeaveFreely` | `true` | Whether non-ops can join/leave groups |
 | `groupPrefixFormat` | `[%s] ` | Prefix template, `%s` = group name |
+| `teleportWarmupSeconds` | `5` | Countdown between `/tpaccept` and the teleport |
+| `requestTimeoutSeconds` | `60` | How long a `/tpa` request stays valid |
 
 ## Building from source
 

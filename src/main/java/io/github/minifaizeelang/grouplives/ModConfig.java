@@ -29,4 +29,10 @@ public class ModConfig {
 
     @Config.Comment("Prefix shown before the player name in tab list and chat. %s is replaced with the group name.")
     public static String groupPrefixFormat = "[%s] ";
+
+    @Config.Comment("Seconds between accepting a /tpa request and the actual teleport. Taking damage during it cancels the teleport.")
+    public static int teleportWarmupSeconds = 5;
+
+    @Config.Comment("Seconds a /tpa request stays valid before it expires.")
+    public static int requestTimeoutSeconds = 60;
 }

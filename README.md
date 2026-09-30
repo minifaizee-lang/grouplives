@@ -70,6 +70,8 @@ event starts; every joining player lands in it), also via **L** or Esc →
 **Лобби ивента**:
 - Banner with the event status (lobby open / event running).
 - Team cards: avatars of members, member names, a join button per team.
+- **«Создать команду»** — anyone can try (server-configurable): enter a name,
+  pick a color, confirm — the creator joins the team automatically.
 - Waiting room with players not yet in a team; the host can click a waiting
   player and then a team to assign them («+ Имя» mode).
 - Host: «Создать команду» (name + color picker), world settings — border

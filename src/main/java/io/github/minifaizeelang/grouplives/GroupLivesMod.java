@@ -23,7 +23,7 @@ public class GroupLivesMod {
 
     public static final String MODID = "grouplives";
     public static final String NAME = "Groups & Lives";
-    public static final String VERSION = "0.4.1";
+    public static final String VERSION = "1.0.0";
 
     private static Logger logger;
 

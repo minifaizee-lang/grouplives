@@ -190,6 +190,7 @@ public class GuiLobby extends GuiScreen {
             this.buttonList.add(start);
         }
 
+        this.buttonList.add(new GuiButton(ID_CREATE, 10, this.height - 24, 150, 16, "Создать команду"));
         this.buttonList.add(new GuiButton(ID_BACK, this.width - 70, this.height - 22, 60, 16, "Назад"));
     }
 

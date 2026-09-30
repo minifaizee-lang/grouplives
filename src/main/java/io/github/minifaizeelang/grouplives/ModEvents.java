@@ -29,8 +29,9 @@ public final class ModEvents {
     }
 
     /**
-     * Rebuilds player chat as "[Tag] Nickname: message" with the group color -
-     * vanilla 1.12.2 chat does not render team prefixes on its own.
+     * Rebuilds player chat as "[Tag] <Nickname> message" with a colored tag -
+     * vanilla 1.12.2 chat does not render team prefixes on its own. Players
+     * without a group keep the vanilla "<Nickname> message" format.
      */
     @SubscribeEvent
     public static void onServerChat(ServerChatEvent event) {
@@ -45,12 +46,9 @@ public final class ModEvents {
         TextFormatting color = team.getColor() == null ? TextFormatting.WHITE : team.getColor();
         TextComponentString tag = new TextComponentString(String.format(ModConfig.groupPrefixFormat, team.getName()));
         tag.getStyle().setColor(color);
-        TextComponentString name = new TextComponentString(player.getName());
-        name.getStyle().setColor(color);
         TextComponentString line = new TextComponentString("");
         line.appendSibling(tag);
-        line.appendSibling(name);
-        line.appendSibling(new TextComponentString(": " + event.getMessage()));
+        line.appendSibling(new TextComponentString("<" + player.getName() + "> " + event.getMessage()));
         event.setComponent(line);
     }
 

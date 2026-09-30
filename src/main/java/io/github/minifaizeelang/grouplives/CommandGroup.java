@@ -50,7 +50,7 @@ public class CommandGroup extends CommandBase {
                 }
                 String name = args[1];
                 if (!GroupManager.isValidName(name)) {
-                    throw new CommandException("Invalid group name: use 1-16 letters, digits, _ or -");
+                    throw new CommandException("Invalid group name: use 1-16 characters (letters, digits, . _ | + - /)");
                 }
                 TextFormatting color = TextFormatting.WHITE;
                 if (args.length >= 3) {

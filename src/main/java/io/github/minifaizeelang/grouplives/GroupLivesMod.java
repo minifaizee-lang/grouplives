@@ -21,7 +21,7 @@ public class GroupLivesMod {
 
     public static final String MODID = "grouplives";
     public static final String NAME = "Groups & Lives";
-    public static final String VERSION = "0.1.2";
+    public static final String VERSION = "0.1.3";
 
     private static Logger logger;
 
@@ -39,5 +39,6 @@ public class GroupLivesMod {
     public void serverStarting(FMLServerStartingEvent event) {
         event.registerServerCommand(new CommandGroup());
         event.registerServerCommand(new CommandLives());
+        GroupManager.reapplyAllStyles(event.getServer());
     }
 }

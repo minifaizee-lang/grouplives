@@ -30,7 +30,7 @@ public final class GroupManager {
      */
     private static final int PREFIX_BYTE_LIMIT = 16;
 
-    private static final Pattern VALID_NAME = Pattern.compile("^[A-Za-z0-9_-]{1,16}$");
+    private static final Pattern VALID_NAME = Pattern.compile("^[\\p{L}\\p{N}_.|+\\-/]{1,16}$");
 
     private GroupManager() {
     }
@@ -63,22 +63,24 @@ public final class GroupManager {
         TextFormatting actual = color == null ? TextFormatting.WHITE : color;
         team.setColor(actual);
         team.setPrefix(fitPrefix(actual, name));
-        team.setSuffix(TextFormatting.RESET.toString());
         updateTabNames(server, team);
     }
 
     /**
-     * Builds a prefix that always fits the packet limit. The trailing reset
-     * code is deliberately omitted so the color "leaks" onto the nickname -
-     * that is how vanilla renders team-colored names in the tab list and
-     * nametags. The reset is placed in the suffix instead.
+     * Builds a self-contained prefix (color + tag + reset) that always fits
+     * the 16-byte packet limit; longer group names shrink step by step: full
+     * format, bare [tag], bare tag, color only. Because the prefix ends with
+     * a reset, the nickname after it stays white and the tag shows up colored
+     * everywhere vanilla uses the display name (nametag, achievements, death
+     * messages).
      */
     private static String fitPrefix(TextFormatting color, String tag) {
         String code = color.toString();
+        String reset = TextFormatting.RESET.toString();
         String[] candidates = new String[]{
-                code + String.format(ModConfig.groupPrefixFormat, tag),
-                code + "[" + tag + "]",
-                code + tag,
+                code + String.format(ModConfig.groupPrefixFormat, tag) + reset,
+                code + "[" + tag + "]" + reset,
+                code + tag + reset,
         };
         for (String candidate : candidates) {
             if (candidate.getBytes(StandardCharsets.UTF_8).length <= PREFIX_BYTE_LIMIT) {
@@ -135,6 +137,13 @@ public final class GroupManager {
         return out;
     }
 
+    /** Re-applies the current prefix format to every existing group (called at server start; heals data from older versions). */
+    public static void reapplyAllStyles(MinecraftServer server) {
+        for (ScorePlayerTeam team : scoreboard(server).getTeams()) {
+            applyStyle(server, team, team.getName(), team.getColor());
+        }
+    }
+
     // ------------------------------------------------------------------
     // Tab list display names
     //
@@ -161,7 +170,7 @@ public final class GroupManager {
         return null;
     }
 
-    /** Group tag followed by the nickname, both in the team color. */
+    /** Group tag in the team color, followed by the plain white nickname. */
     public static ITextComponent buildTabName(MinecraftServer server, EntityPlayerMP player) {
         ScorePlayerTeam team = scoreboard(server).getPlayersTeam(player.getName());
         TextComponentString line = new TextComponentString("");
@@ -170,12 +179,8 @@ public final class GroupManager {
             TextComponentString tag = new TextComponentString(String.format(ModConfig.groupPrefixFormat, team.getName()));
             tag.getStyle().setColor(color);
             line.appendSibling(tag);
-            TextComponentString name = new TextComponentString(player.getName());
-            name.getStyle().setColor(color);
-            line.appendSibling(name);
-        } else {
-            line.appendSibling(new TextComponentString(player.getName()));
         }
+        line.appendSibling(new TextComponentString(player.getName()));
         return line;
     }
 

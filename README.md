@@ -57,7 +57,7 @@ Players only need Forge on their client — the mod itself is server-side.
 Requests expire after 60 seconds. Taking damage during the countdown cancels
 the teleport. Warmup and request timeout are configurable.
 
-### Event management — `/event` + settings GUI
+### Event management — `/event` + lobby GUI
 
 | Command | Who | Effect |
 |---|---|---|
@@ -65,13 +65,20 @@ the teleport. Warmup and request timeout are configurable.
 | `/event start [size] [spacing]` | op | Apply the border and scatter every group to a different spot on the map; teammates spawn together |
 | `/event info` | op | Show border size, active teams and spacing |
 
-In-game, press Esc and click **Настройки ивента** for a settings GUI: world
-border size and team spacing steppers, and a **СТАРТ ИВЕНТА** button (double
-click to confirm) that applies the border and scatters the teams. The GUI just
-sends `/event` commands, so all permission checks stay server-side.
+**Lobby GUI** — press **L** in game, or Esc → **Лобби ивента**:
+- Left: live player list with skin avatars, nicknames and colored team tags.
+- Right: clickable team rows (color, member count, member names) — click to join.
+- Everyone: «Покинуть команду»; host: «Создать команду» (name + color picker).
+- Host row: border size and team distance steppers and the **СТАРТ** button (double click to confirm) — applies the vanilla world border and scatters the teams.
+
+The lobby renders vanilla-synced data (tab list + scoreboard) and sends regular
+`/group` and `/event` commands, so all permission checks stay server-side.
+On dedicated servers the host controls require operator rights; the mod must
+be installed client-side for the GUI.
 
 Notes: teams land on solid ground (ocean spots are shifted); the host receives
-a report of where each team was placed.
+a report of where each team was placed. The border itself is the vanilla
+Minecraft world border (visual wall included).
 
 ## Config (`config/grouplives.cfg`)
 

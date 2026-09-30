@@ -2,6 +2,7 @@ package io.github.minifaizeelang.grouplives;
 
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.Mod.EventHandler;
+import net.minecraftforge.fml.common.event.FMLInitializationEvent;
 import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
 import net.minecraftforge.fml.common.event.FMLServerStartingEvent;
 import org.apache.logging.log4j.Logger;
@@ -21,7 +22,7 @@ public class GroupLivesMod {
 
     public static final String MODID = "grouplives";
     public static final String NAME = "Groups & Lives";
-    public static final String VERSION = "0.2.0";
+    public static final String VERSION = "0.3.0";
 
     private static Logger logger;
 
@@ -33,6 +34,13 @@ public class GroupLivesMod {
     public void preInit(FMLPreInitializationEvent event) {
         logger = event.getModLog();
         logger.info(NAME + " " + VERSION + " initializing");
+    }
+
+    @EventHandler
+    public void init(FMLInitializationEvent event) {
+        if (event.getSide().isClient()) {
+            io.github.minifaizeelang.grouplives.client.ClientEvents.register();
+        }
     }
 
     @EventHandler

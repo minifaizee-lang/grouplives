@@ -65,20 +65,34 @@ the teleport. Warmup and request timeout are configurable.
 | `/event start [size] [spacing]` | op | Apply the border and scatter every group to a different spot on the map; teammates spawn together |
 | `/event info` | op | Show border size, active teams and spacing |
 
-**Lobby GUI** — press **L** in game, or Esc → **Лобби ивента**:
-- Left: live player list with skin avatars, nicknames and colored team tags.
-- Right: clickable team rows (color, member count, member names) — click to join.
-- Everyone: «Покинуть команду»; host: «Создать команду» (name + color picker).
-- Host row: border size and team distance steppers and the **СТАРТ** button (double click to confirm) — applies the vanilla world border and scatters the teams.
+**World Lobby** — opens automatically when you load into the world (before the
+event starts; every joining player lands in it), also via **L** or Esc →
+**Лобби ивента**:
+- Banner with the event status (lobby open / event running).
+- Team cards: avatars of members, member names, a join button per team.
+- Waiting room with players not yet in a team; the host can click a waiting
+  player and then a team to assign them («+ Имя» mode).
+- Host: «Создать команду» (name + color picker), world settings — border
+  on/off toggle, size stepper, distance slider — and the **СТАРТ ИВЕНТА**
+  button (double click to confirm).
+- Once the event has started, only the host can reopen the lobby; players
+  are pointed to the team teleport menu instead.
 
-The lobby renders vanilla-synced data (tab list + scoreboard) and sends regular
-`/group` and `/event` commands, so all permission checks stay server-side.
-On dedicated servers the host controls require operator rights; the mod must
-be installed client-side for the GUI.
+**Team teleport menu** — Esc → **«Телепорт к товарищу»**: your online
+teammates with avatars; clicking one sends them a `/tpa` request directly,
+no typing.
 
-Notes: teams land on solid ground (ocean spots are shifted); the host receives
-a report of where each team was placed. The border itself is the vanilla
-Minecraft world border (visual wall included).
+The lobby renders vanilla-synced data (tab list + scoreboard) and sends
+regular `/group` and `/event` commands, so all permission checks stay
+server-side. On dedicated servers the host controls require operator rights;
+the mod must be installed client-side for the GUIs.
+
+**Border**: the mod enforces its own square border server-side (clamp-back
+plus an on-screen warning at the edge) and stores it in the world save; it
+does not use or change the vanilla `/worldborder` (any leftover vanilla
+border from older mod versions is cleared). Teams land on solid ground
+(ocean spots are shifted); the host receives a report of where each team was
+placed.
 
 ## Config (`config/grouplives.cfg`)
 

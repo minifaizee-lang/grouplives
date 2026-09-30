@@ -1,5 +1,6 @@
 package io.github.minifaizeelang.grouplives;
 
+import io.github.minifaizeelang.grouplives.network.NetworkHandler;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.scoreboard.ScorePlayerTeam;
@@ -29,6 +30,7 @@ public final class ModEvents {
         LivesManager.onLogin(player.mcServer, player);
         GroupManager.sendAllTabNamesTo(player.mcServer, player);
         GroupManager.updateTabName(player.mcServer, player);
+        NetworkHandler.sendEventStateTo(player);
     }
 
     /**
@@ -80,13 +82,14 @@ public final class ModEvents {
         LivesManager.onRespawn(player.mcServer, player);
     }
 
-    /** Drives the /tpa countdown. */
+    /** Drives the /tpa countdown and enforces the event border. */
     @SubscribeEvent
     public static void onServerTick(TickEvent.ServerTickEvent event) {
         if (event.phase == TickEvent.Phase.END) {
             MinecraftServer server = FMLCommonHandler.instance().getMinecraftServerInstance();
             if (server != null) {
                 TeleportManager.tick(server);
+                EventManager.tick(server);
             }
         }
     }

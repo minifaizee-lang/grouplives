@@ -1,21 +1,28 @@
 package io.github.minifaizeelang.grouplives;
 
+import io.github.minifaizeelang.grouplives.network.NetworkHandler;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.network.play.server.SPacketTitle;
 import net.minecraft.scoreboard.ScorePlayerTeam;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.text.TextComponentString;
 import net.minecraft.util.text.TextFormatting;
 import net.minecraft.world.WorldServer;
 import net.minecraft.world.border.WorldBorder;
+import net.minecraft.world.storage.WorldSavedData;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
 /**
- * Event management: sets the world border and scatters teams across the map
- * on start, keeping team members together. All of it runs in the overworld.
+ * Event management: a mod-owned square border (not the vanilla world border),
+ * team scattering on start, and the started/lobby-phase state that is synced
+ * to clients. The border is enforced server-side every tick by clamping
+ * players back inside. All of it runs in the overworld.
  */
 public final class EventManager {
 
@@ -27,17 +34,109 @@ public final class EventManager {
             {6, 6}, {-6, 6}, {6, -6}, {-6, -6},
     };
 
+    /** Anything below this size is a leftover border from older mod versions and gets cleared. */
+    private static final int VANILLA_BORDER_CLEARED_SIZE = 59999968;
+
     private EventManager() {
     }
 
-    /** Centers the overworld border on world spawn and resizes it. Vanilla persists it in the world save. */
-    public static void setBorder(MinecraftServer server, int sizeBlocks) {
-        WorldServer world = server.getWorld(0);
-        BlockPos spawn = world.getSpawnPoint();
-        WorldBorder border = world.getWorldBorder();
-        border.setCenter(spawn.getX() + 0.5, spawn.getZ() + 0.5);
-        border.setSize(sizeBlocks);
-        ModConfig.eventBorderSize = sizeBlocks;
+    public static class EventStateData extends WorldSavedData {
+
+        public static final String DATA_NAME = "grouplives_event";
+
+        public boolean borderEnabled;
+        public boolean started;
+        public int borderSize = ModConfig.eventBorderSize;
+        public double centerX;
+        public double centerZ;
+
+        public EventStateData(String name) {
+            super(name);
+        }
+
+        public EventStateData() {
+            super(DATA_NAME);
+        }
+
+        public void ensureCenter(MinecraftServer server) {
+            if (centerX == 0 && centerZ == 0) {
+                BlockPos spawn = server.getWorld(0).getSpawnPoint();
+                centerX = spawn.getX() + 0.5;
+                centerZ = spawn.getZ() + 0.5;
+                markDirty();
+            }
+        }
+
+        public double minX() {
+            return centerX - borderSize / 2.0;
+        }
+
+        public double maxX() {
+            return centerX + borderSize / 2.0;
+        }
+
+        public double minZ() {
+            return centerZ - borderSize / 2.0;
+        }
+
+        public double maxZ() {
+            return centerZ + borderSize / 2.0;
+        }
+
+        @Override
+        public void readFromNBT(NBTTagCompound nbt) {
+            borderEnabled = nbt.getBoolean("BorderEnabled");
+            started = nbt.getBoolean("Started");
+            borderSize = nbt.hasKey("Size") ? nbt.getInteger("Size") : ModConfig.eventBorderSize;
+            centerX = nbt.getDouble("CenterX");
+            centerZ = nbt.getDouble("CenterZ");
+        }
+
+        @Override
+        public NBTTagCompound writeToNBT(NBTTagCompound compound) {
+            compound.setBoolean("BorderEnabled", borderEnabled);
+            compound.setBoolean("Started", started);
+            compound.setInteger("Size", borderSize);
+            compound.setDouble("CenterX", centerX);
+            compound.setDouble("CenterZ", centerZ);
+            return compound;
+        }
+    }
+
+    public static EventStateData data(MinecraftServer server) {
+        EventStateData data = (EventStateData) server.getEntityWorld().getMapStorage()
+                .getOrLoadData(EventStateData.class, EventStateData.DATA_NAME);
+        if (data == null) {
+            data = new EventStateData();
+            server.getEntityWorld().getMapStorage().setData(EventStateData.DATA_NAME, data);
+        }
+        return data;
+    }
+
+    /** Older versions (<= 0.2.x) used the vanilla world border; undo any leftover limit. */
+    private static void clearVanillaBorder(MinecraftServer server) {
+        WorldBorder vanilla = server.getWorld(0).getWorldBorder();
+        if (vanilla.getSize() < 59000000) {
+            vanilla.setSize(VANILLA_BORDER_CLEARED_SIZE);
+        }
+    }
+
+    public static void setBorder(MinecraftServer server, int size, boolean enabled) {
+        EventStateData data = data(server);
+        data.ensureCenter(server);
+        data.borderSize = size;
+        data.borderEnabled = enabled;
+        data.markDirty();
+        clearVanillaBorder(server);
+        NetworkHandler.sendEventStateToAll(server);
+    }
+
+    public static void toggleBorder(MinecraftServer server, boolean enabled) {
+        EventStateData data = data(server);
+        data.ensureCenter(server);
+        data.borderEnabled = enabled;
+        data.markDirty();
+        NetworkHandler.sendEventStateToAll(server);
     }
 
     /** Teams (groups) that have at least one online member. */
@@ -55,21 +154,24 @@ public final class EventManager {
     }
 
     public static void startEvent(MinecraftServer server, ICommandSender feedbackTo, int borderSize, int spacing) {
-        WorldServer world = server.getWorld(0);
-        setBorder(server, borderSize);
+        EventStateData data = data(server);
+        data.ensureCenter(server);
+        data.borderSize = borderSize;
+        data.borderEnabled = true;
+        clearVanillaBorder(server);
 
+        WorldServer world = server.getWorld(0);
         List<ScorePlayerTeam> teams = activeTeams(server);
         if (teams.isEmpty()) {
             Msg.send(feedbackTo, TextFormatting.RED, "No groups with online players found - nothing to scatter.");
             return;
         }
 
-        WorldBorder border = world.getWorldBorder();
-        int margin = Math.max(200, borderSize / 20);
-        double minX = border.minX() + margin;
-        double maxX = border.maxX() - margin;
-        double minZ = border.minZ() + margin;
-        double maxZ = border.maxZ() - margin;
+        int margin = Math.max(100, borderSize / 20);
+        double minX = data.minX() + margin;
+        double maxX = data.maxX() - margin;
+        double minZ = data.minZ() + margin;
+        double maxZ = data.maxZ() - margin;
         Random rand = new Random();
 
         // Pick one point per team, respecting the minimum spacing between teams.
@@ -102,8 +204,11 @@ public final class EventManager {
             points[i] = picked;
         }
 
-        Msg.broadcast(server, TextFormatting.GOLD, "The event has started! " + teams.size()
-                + " team(s) were scattered across the map.");
+        data.started = true;
+        data.markDirty();
+
+        Msg.broadcast(server, TextFormatting.GOLD, "Ивент начался! Граница мира: "
+                + borderSize + " x " + borderSize + ". Команд разбросано: " + teams.size() + ".");
 
         StringBuilder report = new StringBuilder();
         for (int i = 0; i < teams.size(); i++) {
@@ -144,5 +249,35 @@ public final class EventManager {
                     .append(" (").append(members.size()).append(" players); ");
         }
         Msg.send(feedbackTo, TextFormatting.GREEN, "Teams scattered: " + report);
+        NetworkHandler.sendEventStateToAll(server);
+    }
+
+    /** Enforces the mod-owned border; called once per server tick. */
+    public static void tick(MinecraftServer server) {
+        EventStateData data = data(server);
+        if (!data.borderEnabled) {
+            return;
+        }
+        double minX = data.minX() + 1;
+        double maxX = data.maxX() - 1;
+        double minZ = data.minZ() + 1;
+        double maxZ = data.maxZ() - 1;
+        for (EntityPlayerMP player : server.getPlayerList().getPlayers()) {
+            if (player.dimension != 0) {
+                continue;
+            }
+            double clampedX = clamp(player.posX, minX, maxX);
+            double clampedZ = clamp(player.posZ, minZ, maxZ);
+            if (clampedX != player.posX || clampedZ != player.posZ) {
+                player.connection.setPlayerLocation(clampedX, player.posY, clampedZ,
+                        player.rotationYaw, player.rotationPitch);
+                player.connection.sendPacket(new SPacketTitle(SPacketTitle.Type.ACTIONBAR,
+                        new TextComponentString(TextFormatting.RED + "Вы достигли границы мира!")));
+            }
+        }
+    }
+
+    private static double clamp(double value, double min, double max) {
+        return value < min ? min : Math.min(value, max);
     }
 }

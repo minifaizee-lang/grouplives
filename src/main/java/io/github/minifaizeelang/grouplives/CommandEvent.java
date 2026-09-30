@@ -17,7 +17,7 @@ public class CommandEvent extends CommandBase {
 
     @Override
     public String getUsage(ICommandSender sender) {
-        return "/event <border <size>|start [size] [spacing]|info>";
+        return "/event <border <size|on|off>|start [size] [spacing]|info>";
     }
 
     @Override
@@ -33,12 +33,19 @@ public class CommandEvent extends CommandBase {
         switch (args[0].toLowerCase()) {
             case "border": {
                 if (args.length < 2) {
-                    throw new WrongUsageException("/event border <size>");
+                    throw new WrongUsageException("/event border <size|on|off>");
+                }
+                if ("on".equalsIgnoreCase(args[1]) || "off".equalsIgnoreCase(args[1])) {
+                    boolean enabled = "on".equalsIgnoreCase(args[1]);
+                    EventManager.toggleBorder(server, enabled);
+                    Msg.send(sender, TextFormatting.GREEN, enabled
+                            ? "Граница мира включена." : "Граница мира выключена.");
+                    return;
                 }
                 int size = parseInt(args[1], 100, 600000);
-                EventManager.setBorder(server, size);
+                EventManager.setBorder(server, size, true);
                 Msg.send(sender, TextFormatting.GREEN,
-                        "World border set to " + size + " x " + size + ", centered on world spawn.");
+                        "Граница мира установлена: " + size + " x " + size + ", центр - точка спавна.");
                 return;
             }
             case "start": {
@@ -48,14 +55,14 @@ public class CommandEvent extends CommandBase {
                 return;
             }
             case "info": {
-                WorldServer world = server.getWorld(0);
-                int size = world.getWorldBorder().getSize();
+                EventManager.EventStateData data = EventManager.data(server);
                 Msg.send(sender, TextFormatting.GOLD, "Event status:");
-                Msg.send(sender, " - World border: " + size + " x " + size
-                        + " (center " + (int) world.getWorldBorder().getCenterX()
-                        + ", " + (int) world.getWorldBorder().getCenterZ() + ")");
-                Msg.send(sender, " - Teams with online players: " + EventManager.activeTeams(server).size());
-                Msg.send(sender, " - Team spacing on start: " + ModConfig.teamSpacing + " blocks");
+                Msg.send(sender, " - Граница: " + (data.borderEnabled ? "включена" : "выключена")
+                        + ", размер " + data.borderSize + " x " + data.borderSize
+                        + " (центр " + (int) data.centerX + ", " + (int) data.centerZ + ")");
+                Msg.send(sender, " - Ивент: " + (data.started ? "идёт" : "лобби (подготовка)"));
+                Msg.send(sender, " - Команд с игроками онлайн: " + EventManager.activeTeams(server).size());
+                Msg.send(sender, " - Дистанция между командами: " + ModConfig.teamSpacing);
                 return;
             }
             default:

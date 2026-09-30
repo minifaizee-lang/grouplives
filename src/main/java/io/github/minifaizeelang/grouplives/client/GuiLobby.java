@@ -20,16 +20,15 @@ import java.util.Map;
 
 /**
  * World Lobby: pre-game screen styled after the reference image. Banner with
- * the lobby status, team cards (avatars, members, join buttons), a waiting
- * room, and - for the host - world settings (border toggle/size, spacing
- * slider, START). Everything acts through regular /group and /event commands.
+ * the lobby status, team cards (member names, join buttons), a waiting room,
+ * and - for the host - world settings (border toggle, border-size slider,
+ * spacing slider, START). Everything acts through regular /group and /event
+ * commands.
  */
 public class GuiLobby extends GuiScreen {
 
     private static final int ID_BACK = 0;
     private static final int ID_BORDER_TOGGLE = 30;
-    private static final int ID_BORDER_MINUS = 31;
-    private static final int ID_BORDER_PLUS = 32;
     private static final int ID_BORDER_PANEL = 10;
     private static final int ID_START_PANEL = 12;
     private static final int ID_CREATE = 2;
@@ -52,13 +51,15 @@ public class GuiLobby extends GuiScreen {
             0x555555, 0x5555FF, 0x55FF55, 0x55FFFF, 0xFF5555, 0xFF55FF, 0xFFFF55, 0xFFFFFF,
     };
 
-    private static final long CONFIRM_WINDOW_MS = 5000;
+    private static final int BORDER_MIN = 1000;
+    private static final int BORDER_MAX = 30000;
+    private static final int BORDER_STEP = 500;
     private static final int SPACING_MIN = 100;
     private static final int SPACING_MAX = 2000;
+    private static final int SPACING_STEP = 50;
 
-    /** Host's spacing value; lives for the session, applied by /event start. */
+    /** Host's values; live for the session and applied by /event start or the size panel. */
     public static int teamSpacing = ModConfig.teamSpacing;
-    /** Host's border size; lives for the session, applied by /event start or the size panel. */
     public static int borderSize = ModConfig.eventBorderSize;
 
     private final GuiScreen parentScreen;
@@ -69,10 +70,10 @@ public class GuiLobby extends GuiScreen {
     private GuiTextField nameField;
     private boolean createMode;
     private int colorIndex;
-    private long startArmedUntil;
     private String lastStateKey = "";
     private String selectedWaiting;
-    private boolean sliderDragging;
+    private int activeSlider;
+    private PanelButton sizePanel;
 
     public GuiLobby(GuiScreen parentScreen) {
         this.parentScreen = parentScreen;
@@ -103,7 +104,7 @@ public class GuiLobby extends GuiScreen {
     }
 
     private int cardH() {
-        return 54;
+        return 48;
     }
 
     private int waitingY() {
@@ -125,6 +126,8 @@ public class GuiLobby extends GuiScreen {
         this.waitingByButton.clear();
         this.visibleTeams.clear();
         this.nameField = null;
+        this.sizePanel = null;
+        this.activeSlider = 0;
 
         if (createMode) {
             this.nameField = new GuiTextField(0, this.fontRenderer, 10, this.height - 46, 120, 18);
@@ -153,8 +156,8 @@ public class GuiLobby extends GuiScreen {
             boolean mine = isMyTeam(team);
             String label = mine ? "✓ ВАША КОМАНДА"
                     : (selectedWaiting != null && isHost() ? "+ " + selectedWaiting : "ВСТУПИТЬ →");
-            PanelButton join = new PanelButton(TEAM_JOIN_BASE + i, leftX() + 4, by + cardH() - 18,
-                    leftW() - 8, 14, label, colorOf(team));
+            PanelButton join = new PanelButton(TEAM_JOIN_BASE + i, leftX() + 4, by + cardH() - 17,
+                    leftW() - 8, 13, label, colorOf(team));
             joinTargets.put(join.id, team);
             this.buttonList.add(join);
             i++;
@@ -174,19 +177,16 @@ public class GuiLobby extends GuiScreen {
 
             int px = rightX();
             int pw = rightW();
-            PanelButton toggle = new PanelButton(ID_BORDER_TOGGLE, px + pw - 58, panelY() + 14, 54, 14,
+            PanelButton toggle = new PanelButton(ID_BORDER_TOGGLE, px + pw - 58, panelY() + 13, 54, 14,
                     ClientState.borderEnabled ? "ВКЛ" : "ВЫКЛ",
                     ClientState.borderEnabled ? 0xFF7CC24A : 0xFFD0483C);
             this.buttonList.add(toggle);
-            PanelButton sizePanel = new PanelButton(ID_BORDER_PANEL, px + 4, panelY() + 32, pw - 8, 16,
+            this.sizePanel = new PanelButton(ID_BORDER_PANEL, px + 4, panelY() + 30, pw - 8, 16,
                     "РАЗМЕР", 0xFFE8B33C);
-            sizePanel.value = borderSize + " бл.";
-            this.buttonList.add(sizePanel);
-            this.buttonList.add(new GuiButton(ID_BORDER_MINUS, px + 4, panelY() + 50, 34, 14, "-1к"));
-            this.buttonList.add(new GuiButton(ID_BORDER_PLUS, px + 42, panelY() + 50, 34, 14, "+1к"));
-            PanelButton start = new PanelButton(ID_START_PANEL, px + 4, panelY() + 96, pw - 8, 22,
+            this.sizePanel.value = borderSize + " бл.";
+            this.buttonList.add(this.sizePanel);
+            PanelButton start = new PanelButton(ID_START_PANEL, px + 4, panelY() + 80, pw - 8, 20,
                     "СТАРТ ИВЕНТА", 0xFFE8B33C);
-            start.description = System.currentTimeMillis() < this.startArmedUntil ? "ещё раз!" : "";
             this.buttonList.add(start);
         }
 
@@ -257,7 +257,6 @@ public class GuiLobby extends GuiScreen {
     @Override
     public void drawScreen(int mouseX, int mouseY, float partialTicks) {
         drawGradientRect(0, 0, this.width, this.height, 0xFF231826, 0xFF05040A);
-        int cx = this.width / 2;
 
         // Banner
         card(8, 6, this.width - 16, 34, 0xFFE8B33C);
@@ -282,7 +281,7 @@ public class GuiLobby extends GuiScreen {
         String counter = (totalOnline - waiting.size()) + "/" + totalOnline + " В КОМАНДАХ";
         this.fontRenderer.drawStringWithShadow(counter, leftX() + leftW() - this.fontRenderer.getStringWidth(counter), 53, 0xFF8A7F96);
 
-        // Team cards
+        // Team cards (members as text - no player limit implied)
         for (int i = 0; i < visibleTeams.size(); i++) {
             ScorePlayerTeam team = visibleTeams.get(i);
             int by = cardsY() + i * (cardH() + 5);
@@ -296,27 +295,7 @@ public class GuiLobby extends GuiScreen {
             members.sort(String::compareTo);
             String line = String.join(", ", members);
             this.fontRenderer.drawStringWithShadow(truncate(line.isEmpty() ? "Пока пусто - вступите первым!" : line,
-                    leftW() - 20), leftX() + 10, by + 15, line.isEmpty() ? 0xFF6E6480 : 0xFF9A8FA8);
-
-            // Avatar strip + empty slots
-            int ax = leftX() + 10;
-            int heads = 0;
-            for (String member : members) {
-                if (heads >= 5) {
-                    break;
-                }
-                NetworkPlayerInfo info = this.mc.getConnection() != null
-                        ? this.mc.getConnection().getPlayerInfo(member) : null;
-                if (info != null) {
-                    drawAvatar(ax, by + 26, info, 9);
-                    ax += 11;
-                    heads++;
-                }
-            }
-            int slots = Math.max(0, Math.min(4 - heads, 3));
-            for (int s = 0; s < slots; s++) {
-                drawDashedSlot(ax + s * 11, by + 26, 9);
-            }
+                    leftW() - 20), leftX() + 10, by + 16, line.isEmpty() ? 0xFF6E6480 : 0xFF9A8FA8);
         }
 
         // Waiting room
@@ -333,14 +312,15 @@ public class GuiLobby extends GuiScreen {
         if (isHost()) {
             card(rightX(), panelY(), rightW(), 118, 0xFFD0483C);
             this.fontRenderer.drawStringWithShadow("НАСТРОЙКИ МИРА", rightX() + 10, panelY() + 3, 0xFFE8B33C);
-            this.fontRenderer.drawStringWithShadow("ГРАНИЦА МИРА", rightX() + 10, panelY() + 17, 0xFF9A8FA8);
-            this.fontRenderer.drawStringWithShadow("ДИСТАНЦИЯ", rightX() + 10, panelY() + 68, 0xFF9A8FA8);
+            this.fontRenderer.drawStringWithShadow("ГРАНИЦА МИРА", rightX() + 10, panelY() + 16, 0xFF9A8FA8);
+            drawSlider(1);
+            this.fontRenderer.drawStringWithShadow("ДИСТАНЦИЯ", rightX() + 10, panelY() + 62, 0xFF9A8FA8);
             String spacingText = teamSpacing + " бл.";
             this.fontRenderer.drawStringWithShadow(spacingText,
-                    rightX() + rightW() - 8 - this.fontRenderer.getStringWidth(spacingText), panelY() + 68, 0xFFF5F2F7);
-            drawSlider(rightX() + 10, panelY() + 82, rightW() - 20);
-            this.fontRenderer.drawStringWithShadow("СТАРТ применит границу и разбросает команды",
-                    rightX() + 10, panelY() + 106, 0xFF6E6480);
+                    rightX() + rightW() - 10 - this.fontRenderer.getStringWidth(spacingText), panelY() + 62, 0xFFF5F2F7);
+            drawSlider(2);
+            this.fontRenderer.drawStringWithShadow("СТАРТ применит границу и разведёт команды",
+                    rightX() + 10, panelY() + 105, 0xFF6E6480);
         } else {
             card(rightX(), panelY(), rightW(), 118, 0xFF5B8FFB);
             this.fontRenderer.drawStringWithShadow("НАСТРОЙКИ МИРА", rightX() + 10, panelY() + 3, 0xFF5B8FFB);
@@ -350,26 +330,6 @@ public class GuiLobby extends GuiScreen {
         }
 
         super.drawScreen(mouseX, mouseY, partialTicks);
-
-        // Avatars drawn on top of the card backgrounds.
-        for (int i = 0; i < visibleTeams.size(); i++) {
-            ScorePlayerTeam team = visibleTeams.get(i);
-            int by = cardsY() + i * (cardH() + 5);
-            int ax = leftX() + 10;
-            int heads = 0;
-            for (String member : team.getMembershipCollection()) {
-                if (heads >= 5) {
-                    break;
-                }
-                NetworkPlayerInfo info = this.mc.getConnection() != null
-                        ? this.mc.getConnection().getPlayerInfo(member) : null;
-                if (info != null) {
-                    drawAvatar(ax, by + 26, info, 9);
-                    ax += 11;
-                    heads++;
-                }
-            }
-        }
 
         if (createMode && this.nameField != null) {
             this.nameField.drawTextBox();
@@ -393,35 +353,53 @@ public class GuiLobby extends GuiScreen {
         drawRect(x + s, y + s, x + 2 * s, y + 2 * s, 0xFFF7D27C);
     }
 
-    private void drawDashedSlot(int x, int y, int size) {
-        drawRect(x, y, x + size, y + 1, 0xFF3B3344);
-        drawRect(x, y + size - 1, x + size, y + size, 0xFF3B3344);
-        drawRect(x, y, x + 1, y + size, 0xFF3B3344);
-        drawRect(x + size - 1, y, x + size, y + size, 0xFF3B3344);
-        drawRect(x + size / 2 - 1, y + size / 2 - 1, x + size / 2 + 1, y + size / 2 + 1, 0xFF3B3344);
+    // ------------------------------------------------------------------
+    // Sliders (border size and team distance)
+    // ------------------------------------------------------------------
+
+    private int sliderX() {
+        return rightX() + 10;
     }
 
-    private void drawSlider(int x, int y, int w) {
-        double fraction = (teamSpacing - SPACING_MIN) / (double) (SPACING_MAX - SPACING_MIN);
+    private int sliderW() {
+        return rightW() - 20;
+    }
+
+    private int sliderY(int which) {
+        return which == 1 ? panelY() + 50 : panelY() + 74;
+    }
+
+    private boolean inSlider(int which, int mouseX, int mouseY) {
+        int y = sliderY(which);
+        return isHost() && mouseX >= sliderX() - 3 && mouseX <= sliderX() + sliderW() + 3
+                && mouseY >= y - 5 && mouseY <= y + 10;
+    }
+
+    private void updateSlider(int which, int mouseX) {
+        double fraction = (mouseX - sliderX()) / (double) sliderW();
         fraction = Math.max(0.0, Math.min(1.0, fraction));
+        if (which == 1) {
+            borderSize = BORDER_MIN + (int) Math.round(fraction * ((BORDER_MAX - BORDER_MIN) / (double) BORDER_STEP)) * BORDER_STEP;
+            if (this.sizePanel != null) {
+                this.sizePanel.value = borderSize + " бл.";
+            }
+        } else {
+            teamSpacing = SPACING_MIN + (int) Math.round(fraction * ((SPACING_MAX - SPACING_MIN) / (double) SPACING_STEP)) * SPACING_STEP;
+        }
+    }
+
+    private void drawSlider(int which) {
+        int min = which == 1 ? BORDER_MIN : SPACING_MIN;
+        int max = which == 1 ? BORDER_MAX : SPACING_MAX;
+        int value = which == 1 ? borderSize : teamSpacing;
+        int x = sliderX();
+        int y = sliderY(which);
+        int w = sliderW();
+        double fraction = Math.max(0.0, Math.min(1.0, (value - min) / (double) (max - min)));
         int knobX = x + (int) (fraction * (w - 4)) + 2;
         drawRect(x, y, x + w, y + 3, 0xFF3B3344);
         drawRect(x, y, knobX, y + 3, 0xFFE8B33C);
         drawRect(knobX - 2, y - 3, knobX + 2, y + 7, 0xFFF5F2F7);
-    }
-
-    private boolean inSlider(int mouseX, int mouseY) {
-        int x = rightX() + 10;
-        int y = panelY() + 82;
-        return isHost() && mouseX >= x - 3 && mouseX <= x + rightW() - 20 + 3 && mouseY >= y - 5 && mouseY <= y + 10;
-    }
-
-    private void updateSpacing(int mouseX) {
-        int x = rightX() + 10;
-        int w = rightW() - 20;
-        double fraction = (mouseX - x) / (double) w;
-        fraction = Math.max(0.0, Math.min(1.0, fraction));
-        teamSpacing = SPACING_MIN + (int) Math.round(fraction * ((SPACING_MAX - SPACING_MIN) / 50.0)) * 50;
     }
 
     private void drawAvatar(int x, int y, NetworkPlayerInfo info, int size) {
@@ -476,23 +454,9 @@ public class GuiLobby extends GuiScreen {
             case ID_BORDER_PANEL:
                 sendCommand("/event border " + borderSize);
                 return;
-            case ID_BORDER_MINUS:
-                borderSize = Math.max(1000, borderSize - 1000);
-                initGui();
-                return;
-            case ID_BORDER_PLUS:
-                borderSize = Math.min(600000, borderSize + 1000);
-                initGui();
-                return;
             case ID_START_PANEL:
-                if (System.currentTimeMillis() < this.startArmedUntil) {
-                    this.startArmedUntil = 0;
-                    sendCommand("/event start " + borderSize + " " + teamSpacing);
-                    this.mc.displayGuiScreen(null);
-                } else {
-                    this.startArmedUntil = System.currentTimeMillis() + CONFIRM_WINDOW_MS;
-                }
-                initGui();
+                sendCommand("/event start " + borderSize + " " + teamSpacing);
+                this.mc.displayGuiScreen(null);
                 return;
             case ID_CREATE:
                 this.createMode = true;
@@ -531,22 +495,27 @@ public class GuiLobby extends GuiScreen {
         if (createMode && this.nameField != null) {
             this.nameField.mouseClicked(mouseX, mouseY, mouseButton);
         }
-        if (!createMode && mouseButton == 0 && inSlider(mouseX, mouseY)) {
-            this.sliderDragging = true;
-            updateSpacing(mouseX);
+        if (!createMode && mouseButton == 0) {
+            if (inSlider(1, mouseX, mouseY)) {
+                this.activeSlider = 1;
+                updateSlider(1, mouseX);
+            } else if (inSlider(2, mouseX, mouseY)) {
+                this.activeSlider = 2;
+                updateSlider(2, mouseX);
+            }
         }
     }
 
     @Override
     protected void mouseClickMove(int mouseX, int mouseY, int clickedMouseButton, long timeSinceLastClick) {
-        if (this.sliderDragging && clickedMouseButton == 0) {
-            updateSpacing(mouseX);
+        if (this.activeSlider != 0 && clickedMouseButton == 0) {
+            updateSlider(this.activeSlider, mouseX);
         }
     }
 
     @Override
     protected void mouseReleased(int mouseX, int mouseY, int state) {
-        this.sliderDragging = false;
+        this.activeSlider = 0;
         super.mouseReleased(mouseX, mouseY, state);
     }
 

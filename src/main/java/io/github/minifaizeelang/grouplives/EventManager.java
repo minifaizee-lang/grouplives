@@ -56,15 +56,8 @@ public final class EventManager {
 
         public EventStateData() {
             super(DATA_NAME);
-        }
-
-        public void ensureCenter(MinecraftServer server) {
-            if (centerX == 0 && centerZ == 0) {
-                BlockPos spawn = server.getWorld(0).getSpawnPoint();
-                centerX = spawn.getX() + 0.5;
-                centerZ = spawn.getZ() + 0.5;
-                markDirty();
-            }
+            centerX = 0.5;
+            centerZ = 0.5;
         }
 
         public double minX() {
@@ -90,6 +83,13 @@ public final class EventManager {
             borderSize = nbt.hasKey("Size") ? nbt.getInteger("Size") : ModConfig.eventBorderSize;
             centerX = nbt.getDouble("CenterX");
             centerZ = nbt.getDouble("CenterZ");
+            if (!nbt.hasKey("CV")) {
+                // Migration: versions <= 0.4.0 centered the border on the world spawn;
+                // the border is measured from the zero coordinates now.
+                centerX = 0.5;
+                centerZ = 0.5;
+                markDirty();
+            }
         }
 
         @Override
@@ -99,6 +99,7 @@ public final class EventManager {
             compound.setInteger("Size", borderSize);
             compound.setDouble("CenterX", centerX);
             compound.setDouble("CenterZ", centerZ);
+            compound.setInteger("CV", 2);
             return compound;
         }
     }
@@ -123,7 +124,6 @@ public final class EventManager {
 
     public static void setBorder(MinecraftServer server, int size, boolean enabled) {
         EventStateData data = data(server);
-        data.ensureCenter(server);
         data.borderSize = size;
         data.borderEnabled = enabled;
         data.markDirty();
@@ -133,7 +133,6 @@ public final class EventManager {
 
     public static void toggleBorder(MinecraftServer server, boolean enabled) {
         EventStateData data = data(server);
-        data.ensureCenter(server);
         data.borderEnabled = enabled;
         data.markDirty();
         NetworkHandler.sendEventStateToAll(server);
@@ -155,7 +154,6 @@ public final class EventManager {
 
     public static void startEvent(MinecraftServer server, ICommandSender feedbackTo, int borderSize, int spacing) {
         EventStateData data = data(server);
-        data.ensureCenter(server);
         data.borderSize = borderSize;
         data.borderEnabled = true;
         clearVanillaBorder(server);

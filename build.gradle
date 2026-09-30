@@ -13,11 +13,16 @@ apply plugin: 'net.minecraftforge.gradle'
 apply plugin: 'eclipse'
 apply plugin: 'maven-publish'
 
-version = '0.1.5'
+version = '0.2.0'
 group = 'io.github.minifaizeelang.grouplives'
 archivesBaseName = 'grouplives'
 
 sourceCompatibility = targetCompatibility = compileJava.sourceCompatibility = compileJava.targetCompatibility = '1.8' // Need this here so eclipse task generates correctly.
+
+// Cyrillic literals in the GUI require UTF-8 regardless of the host's default codepage.
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+}
 
 minecraft {
     // The mappings can be changed at any time, and must be in the following format.

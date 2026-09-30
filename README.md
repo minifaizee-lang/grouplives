@@ -57,6 +57,22 @@ Players only need Forge on their client — the mod itself is server-side.
 Requests expire after 60 seconds. Taking damage during the countdown cancels
 the teleport. Warmup and request timeout are configurable.
 
+### Event management — `/event` + settings GUI
+
+| Command | Who | Effect |
+|---|---|---|
+| `/event border <size>` | op | Set the world border (blocks, e.g. 15000 = 15000 x 15000), centered on world spawn |
+| `/event start [size] [spacing]` | op | Apply the border and scatter every group to a different spot on the map; teammates spawn together |
+| `/event info` | op | Show border size, active teams and spacing |
+
+In-game, press Esc and click **Настройки ивента** for a settings GUI: world
+border size and team spacing steppers, and a **СТАРТ ИВЕНТА** button (double
+click to confirm) that applies the border and scatters the teams. The GUI just
+sends `/event` commands, so all permission checks stay server-side.
+
+Notes: teams land on solid ground (ocean spots are shifted); the host receives
+a report of where each team was placed.
+
 ## Config (`config/grouplives.cfg`)
 
 | Option | Default | Meaning |

@@ -10,11 +10,14 @@ import net.minecraft.client.network.NetworkPlayerInfo;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraftforge.client.event.GuiScreenEvent;
 import net.minecraftforge.client.event.RenderGameOverlayEvent;
+import net.minecraftforge.common.config.Configuration;
+import net.minecraftforge.fml.common.Loader;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.relauncher.Side;
 import org.lwjgl.input.Mouse;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -22,10 +25,11 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * The team task panel. Always visible on the HUD (below the minimap) and
- * interactive in two places: over the chat and inside the quick-tasks
- * overlay screen (Tasks key). Only the assignee marks their own task.
- * The server never sends the board to non-team players.
+ * The team task panel. Always visible on the HUD; interactive while the chat
+ * is open - own tasks are marked by clicking, and the panel itself can be
+ * dragged anywhere (position persists in config/grouplives_client.cfg).
+ * Only the assignee marks their own task; the server never sends the board
+ * to non-team players.
  */
 @Mod.EventBusSubscriber(value = Side.CLIENT, modid = GroupLivesMod.MODID)
 public final class TaskHud {
@@ -46,11 +50,21 @@ public final class TaskHud {
         }
     }
 
-    /** Clickable task rows, recomputed on every draw (client thread only). */
+    /** Clickable/draggable state, recomputed on every draw (client thread only). */
     private static final List<Row> rows = new ArrayList<Row>();
 
     /** Localized display-name cache for structured task items. */
     private static final Map<String, String> DISPLAY_CACHE = new HashMap<String, String>();
+
+    private static final int PANEL_W = 260;
+
+    private static int panelX;
+    private static int panelY;
+    private static int panelH;
+    private static boolean posLoaded;
+    private static boolean dragging;
+    private static int dragOffX;
+    private static int dragOffY;
 
     private TaskHud() {
     }
@@ -70,10 +84,41 @@ public final class TaskHud {
     }
 
     // ------------------------------------------------------------------
-    // Rendering: HUD (always) + chat (interactive)
+    // Panel position (client-side config, changed by dragging in the chat)
     // ------------------------------------------------------------------
 
-    /** Always-on HUD copy; hidden while any screen is open (those draw their own). */
+    private static void loadPos() {
+        if (posLoaded) {
+            return;
+        }
+        posLoaded = true;
+        panelX = 8;
+        panelY = ModConfig.taskPanelTopOffset;
+        try {
+            Configuration cfg = new Configuration(
+                    new File(Loader.instance().getConfigDir(), "grouplives_client.cfg"));
+            panelX = cfg.get("taskPanel", "x", panelX).getInt();
+            panelY = cfg.get("taskPanel", "y", panelY).getInt();
+        } catch (RuntimeException ignored) {
+        }
+    }
+
+    private static void savePos() {
+        try {
+            Configuration cfg = new Configuration(
+                    new File(Loader.instance().getConfigDir(), "grouplives_client.cfg"));
+            cfg.get("taskPanel", "x", panelX).set(panelX);
+            cfg.get("taskPanel", "y", panelY).set(panelY);
+            cfg.save();
+        } catch (RuntimeException ignored) {
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Rendering: HUD (always) + chat (interactive, draggable)
+    // ------------------------------------------------------------------
+
+    /** Always-on HUD copy; hidden while any screen is open (chat draws its own). */
     @SubscribeEvent
     public static void onRenderHud(RenderGameOverlayEvent.Post event) {
         if (event.getType() != RenderGameOverlayEvent.ElementType.ALL) {
@@ -84,10 +129,10 @@ public final class TaskHud {
             return;
         }
         rows.clear();
-        drawPanel(mc, true);
+        drawPanel(mc, false);
     }
 
-    /** Interactive copy over the chat. */
+    /** Interactive copy over the chat: tasks clickable, panel draggable. */
     @SubscribeEvent
     public static void onDrawScreen(GuiScreenEvent.DrawScreenEvent.Post event) {
         Minecraft mc = Minecraft.getMinecraft();
@@ -98,15 +143,12 @@ public final class TaskHud {
         drawPanel(mc, true);
     }
 
-    /**
-     * Draws the panel at (8, taskPanelTopOffset) and, when interactive,
-     * records click regions for own tasks. Shared by HUD, chat and overlay.
-     */
-    public static void drawPanel(Minecraft mc, boolean interactive) {
+    private static void drawPanel(Minecraft mc, boolean interactive) {
         if (ClientState.teamTasks.isEmpty()) {
             rows.clear();
             return;
         }
+        loadPos();
         Map<String, List<ClientState.TaskEntry>> byPlayer =
                 new LinkedHashMap<String, List<ClientState.TaskEntry>>();
         for (ClientState.TaskEntry entry : ClientState.teamTasks) {
@@ -118,29 +160,28 @@ public final class TaskHud {
             list.add(entry);
         }
 
-        int x = 8;
-        int w = 180;
-        int y = ModConfig.taskPanelTopOffset;
         ScaledResolution sr = new ScaledResolution(mc);
-        int maxH = Math.max(60, sr.getScaledHeight() - y - 60);
+        panelX = Math.min(panelX, Math.max(0, sr.getScaledWidth() - 80));
+        panelY = Math.min(panelY, Math.max(0, sr.getScaledHeight() - 60));
+        int maxH = Math.max(60, sr.getScaledHeight() - panelY - 60);
         int contentH = 0;
         for (List<ClientState.TaskEntry> tasks : byPlayer.values()) {
             contentH += 15 + tasks.size() * 10 + 3;
         }
-        int panelH = Math.min(24 + contentH + 8, maxH);
+        panelH = Math.min(24 + contentH + 8, maxH);
 
-        Gui.drawRect(x, y, x + w, y + panelH, 0xD017121C);
-        Gui.drawRect(x, y, x + w, y + 1, 0xFF3B3344);
-        Gui.drawRect(x, y + panelH - 1, x + w, y + panelH, 0xFF3B3344);
-        Gui.drawRect(x, y, x + 1, y + panelH, 0xFF3B3344);
-        Gui.drawRect(x + w - 1, y, x + w, y + panelH, 0xFF3B3344);
-        Gui.drawRect(x + 3, y + 3, x + 6, y + panelH - 3, 0xFFE8B33C);
+        Gui.drawRect(panelX, panelY, panelX + PANEL_W, panelY + panelH, 0xD017121C);
+        Gui.drawRect(panelX, panelY, panelX + PANEL_W, panelY + 1, 0xFF3B3344);
+        Gui.drawRect(panelX, panelY + panelH - 1, panelX + PANEL_W, panelY + panelH, 0xFF3B3344);
+        Gui.drawRect(panelX, panelY, panelX + 1, panelY + panelH, 0xFF3B3344);
+        Gui.drawRect(panelX + PANEL_W - 1, panelY, panelX + PANEL_W, panelY + panelH, 0xFF3B3344);
+        Gui.drawRect(panelX + 3, panelY + 3, panelX + 6, panelY + panelH - 3, 0xFFE8B33C);
 
-        mc.fontRenderer.drawStringWithShadow("ВАША КОМАНДА", x + 12, y + 5, 0xFFF5F2F7);
-        mc.fontRenderer.drawStringWithShadow("нажмите на задачу, чтобы отметить", x + 12, y + 14, 0xFF6E6480);
+        mc.fontRenderer.drawStringWithShadow("ВАША КОМАНДА", panelX + 12, panelY + 5, 0xFFF5F2F7);
+        mc.fontRenderer.drawStringWithShadow("задача - клик | окно - тащить", panelX + 12, panelY + 14, 0xFF6E6480);
 
-        int ry = y + 24;
-        int bottom = y + panelH - 4;
+        int ry = panelY + 24;
+        int bottom = panelY + panelH - 4;
         outer:
         for (Map.Entry<String, List<ClientState.TaskEntry>> entry : byPlayer.entrySet()) {
             if (ry + 15 > bottom) {
@@ -152,9 +193,9 @@ public final class TaskHud {
             if (info != null) {
                 mc.getTextureManager().bindTexture(info.getLocationSkin());
                 GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
-                Gui.drawScaledCustomSizeModalRect(x + 7, ry, 8, 8, 8, 8, 11, 11, 64, 64);
+                Gui.drawScaledCustomSizeModalRect(panelX + 7, ry, 8, 8, 8, 8, 11, 11, 64, 64);
                 GlStateManager.enableBlend();
-                Gui.drawScaledCustomSizeModalRect(x + 7, ry, 40, 8, 8, 8, 11, 11, 64, 64);
+                Gui.drawScaledCustomSizeModalRect(panelX + 7, ry, 40, 8, 8, 8, 11, 11, 64, 64);
                 GlStateManager.disableBlend();
             }
             int done = 0;
@@ -163,32 +204,32 @@ public final class TaskHud {
                     done++;
                 }
             }
-            mc.fontRenderer.drawStringWithShadow(entry.getKey(), x + 22, ry + 2, 0xFFF5F2F7);
+            mc.fontRenderer.drawStringWithShadow(entry.getKey(), panelX + 22, ry + 2, 0xFFF5F2F7);
             String counter = done + "/" + tasks.size();
             mc.fontRenderer.drawStringWithShadow(counter,
-                    x + w - 8 - mc.fontRenderer.getStringWidth(counter), ry + 2, 0xFFE8B33C);
+                    panelX + PANEL_W - 8 - mc.fontRenderer.getStringWidth(counter), ry + 2, 0xFFE8B33C);
             ry += 14;
 
             boolean minePlayer = mc.player != null && entry.getKey().equals(mc.player.getName());
             for (ClientState.TaskEntry task : tasks) {
                 if (ry + 10 > bottom) {
-                    mc.fontRenderer.drawStringWithShadow("...", x + 14, ry, 0xFF6E6480);
+                    mc.fontRenderer.drawStringWithShadow("...", panelX + 14, ry, 0xFF6E6480);
                     break outer;
                 }
                 boolean mine = interactive && minePlayer;
                 if (task.done) {
-                    Gui.drawRect(x + 12, ry + 1, x + 18, ry + 7, 0xFF7CC24A);
+                    Gui.drawRect(panelX + 12, ry + 1, panelX + 18, ry + 7, 0xFF7CC24A);
                 } else {
-                    Gui.drawRect(x + 12, ry + 1, x + 18, ry + 2, 0xFFE8B33C);
-                    Gui.drawRect(x + 12, ry + 6, x + 18, ry + 7, 0xFFE8B33C);
-                    Gui.drawRect(x + 12, ry + 1, x + 13, ry + 7, 0xFFE8B33C);
-                    Gui.drawRect(x + 17, ry + 1, x + 18, ry + 7, 0xFFE8B33C);
+                    Gui.drawRect(panelX + 12, ry + 1, panelX + 18, ry + 2, 0xFFE8B33C);
+                    Gui.drawRect(panelX + 12, ry + 6, panelX + 18, ry + 7, 0xFFE8B33C);
+                    Gui.drawRect(panelX + 12, ry + 1, panelX + 13, ry + 7, 0xFFE8B33C);
+                    Gui.drawRect(panelX + 17, ry + 1, panelX + 18, ry + 7, 0xFFE8B33C);
                 }
                 String text = (task.done ? "+ " : "") + taskText(task);
-                mc.fontRenderer.drawStringWithShadow(truncate(mc, text, w - 36), x + 22, ry,
+                mc.fontRenderer.drawStringWithShadow(truncate(mc, text, PANEL_W - 36), panelX + 22, ry,
                         task.done ? 0xFF6E6480 : 0xFFF5F2F7);
                 if (interactive) {
-                    rows.add(new Row(x + 8, ry - 1, w - 16, 11, task.player, task.index, mine));
+                    rows.add(new Row(panelX + 8, ry - 1, PANEL_W - 16, 11, task.player, task.index, mine));
                 }
                 ry += 10;
             }
@@ -207,11 +248,11 @@ public final class TaskHud {
     }
 
     // ------------------------------------------------------------------
-    // Clicks (only the assignee can mark their own task)
+    // Chat interaction: click own task to mark, drag anywhere else to move
     // ------------------------------------------------------------------
 
-    /** Marks a clicked own task; returns true when a row was hit. */
-    public static boolean handlePanelClick(Minecraft mc, int mouseX, int mouseY) {
+    /** Marks a clicked own task; returns true when one was hit. */
+    private static boolean hitOwnTask(Minecraft mc, int mouseX, int mouseY) {
         for (Row row : rows) {
             if (!row.mine) {
                 continue;
@@ -226,18 +267,43 @@ public final class TaskHud {
         return false;
     }
 
+    private static boolean inPanel(int mouseX, int mouseY) {
+        return mouseX >= panelX && mouseX <= panelX + PANEL_W
+                && mouseY >= panelY && mouseY <= panelY + panelH;
+    }
+
     @SubscribeEvent
     public static void onMousePre(GuiScreenEvent.MouseInputEvent.Pre event) {
         Minecraft mc = Minecraft.getMinecraft();
-        if (!(mc.currentScreen instanceof GuiChat) || rows.isEmpty()) {
+        if (!(mc.currentScreen instanceof GuiChat) || mc.player == null || rows.isEmpty() && !dragging) {
             return;
         }
-        if (Mouse.getEventButton() != 0 || mc.player == null) {
-            return;
-        }
+        int button = Mouse.getEventButton();
+        boolean pressed = Mouse.getEventButtonState();
         int mx = Mouse.getEventX() * mc.currentScreen.width / mc.displayWidth;
         int my = mc.currentScreen.height - Mouse.getEventY() * mc.currentScreen.height / mc.displayHeight - 1;
-        if (handlePanelClick(mc, mx, my)) {
+
+        if (pressed && button == 0 && inPanel(mx, my)) {
+            if (hitOwnTask(mc, mx, my)) {
+                event.setCanceled(true);
+                return;
+            }
+            // grab the panel anywhere else
+            dragging = true;
+            dragOffX = mx - panelX;
+            dragOffY = my - panelY;
+            event.setCanceled(true);
+            return;
+        }
+        if (!pressed && button == 0 && dragging) {
+            dragging = false;
+            savePos();
+            return;
+        }
+        if (dragging && button == -1) { // pure mouse-move event while holding
+            ScaledResolution sr = new ScaledResolution(mc);
+            panelX = Math.max(0, Math.min(mx - dragOffX, sr.getScaledWidth() - 60));
+            panelY = Math.max(0, Math.min(my - dragOffY, sr.getScaledHeight() - 20));
             event.setCanceled(true);
         }
     }

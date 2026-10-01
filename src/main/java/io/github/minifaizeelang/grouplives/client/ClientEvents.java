@@ -30,7 +30,6 @@ public final class ClientEvents {
     private static final int TASKS_BUTTON_ID = 7325;
 
     public static final KeyBinding LOBBY_KEY = new KeyBinding("Лобби ивента", Keyboard.KEY_L, "Groups & Lives");
-    public static final KeyBinding TASKS_KEY = new KeyBinding("Быстрые задачи (панель)", Keyboard.KEY_J, "Groups & Lives");
 
     private static int openDelayTicks = -1;
 
@@ -40,7 +39,6 @@ public final class ClientEvents {
     /** Called from the mod's init on the client side only. */
     public static void register() {
         ClientRegistry.registerKeyBinding(LOBBY_KEY);
-        ClientRegistry.registerKeyBinding(TASKS_KEY);
     }
 
     private static boolean canOpenLobby(Minecraft mc, boolean notify) {
@@ -117,14 +115,7 @@ public final class ClientEvents {
     @SubscribeEvent
     public static void onKeyInput(InputEvent.KeyInputEvent event) {
         Minecraft mc = Minecraft.getMinecraft();
-        if (mc.player == null) {
-            return;
-        }
-        if (TASKS_KEY.isPressed() && mc.currentScreen == null) {
-            mc.displayGuiScreen(new GuiTasksOverlay());
-            return;
-        }
-        if (LOBBY_KEY.isPressed() && mc.currentScreen == null && canOpenLobby(mc, true)) {
+        if (LOBBY_KEY.isPressed() && mc.currentScreen == null && mc.player != null && canOpenLobby(mc, true)) {
             mc.displayGuiScreen(new GuiLobby(null));
         }
     }

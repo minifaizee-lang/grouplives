@@ -57,20 +57,21 @@ Players only need Forge on their client — the mod itself is server-side.
 Requests expire after 60 seconds. Taking damage during the countdown cancels
 the teleport. Warmup and request timeout are configurable.
 
-### Team tasks — `/task` + always-visible panel + constructor GUI
+### Team tasks — `/task` + always-visible draggable panel + constructor GUI
 
-The **«ВАША КОМАНДА»** panel is always visible on the HUD (below the
-minimap; the offset is configurable via `taskPanelTopOffset` in the config):
-every online teammate with their avatar, a done/total counter, and their
-tasks with checkboxes. Only the player who was assigned a task can mark it
-done — by clicking it (server-enforced). Two click surfaces:
+The **«ВАША КОМАНДА»** panel is always visible on the HUD (initial position
+below the minimap, `taskPanelTopOffset` in the config). Every online teammate
+shows their avatar, a done/total counter, and their tasks with checkboxes.
+Only the player who was assigned a task can mark it done.
 
-- **Quick overlay** — press **J** (rebindable, «Быстрые задачи»): a
-  transparent, non-pausing panel over the world; click your tasks, press
-  J/Esc to close. No chat needed.
-- **Over the chat** — the same panel stays clickable while the chat is open.
-- **Constructor GUI** — Esc → **«Задачи команды»**: the full board plus the
-  task constructor (assignee, ДОБЫТЬ/СКРАФТИТЬ, item grid, amount).
+While the **chat is open** the panel becomes interactive: click a checkbox to
+mark your task, and **drag the panel anywhere you like** (grab it by the
+header, another player's row, or any free spot) — the position is saved
+client-side in `config/grouplives_client.cfg`. The panel is 260px wide so
+long item names fit.
+
+**Constructor GUI** — Esc → **«Задачи команды»**: the full board plus the
+task constructor (assignee, ДОБЫТЬ/СКРАФТИТЬ, item grid, amount).
 
 | Command | Who | Effect |
 |---|---|---|

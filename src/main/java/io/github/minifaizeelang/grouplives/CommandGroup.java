@@ -73,8 +73,16 @@ public class CommandGroup extends CommandBase {
                 if (args.length < 2) {
                     throw new WrongUsageException("/group delete <name>");
                 }
+                ScorePlayerTeam team = GroupManager.scoreboard(server).getTeam(args[1]);
+                if (team == null) {
+                    throw new CommandException("No group named " + args[1] + " exists.");
+                }
+                List<String> members = new ArrayList<String>(team.getMembershipCollection());
                 if (!GroupManager.delete(server, args[1])) {
                     throw new CommandException("No group named " + args[1] + " exists.");
+                }
+                for (String member : members) {
+                    TasksManager.syncPlayer(server, member);
                 }
                 Msg.send(sender, TextFormatting.YELLOW, "Group deleted: " + args[1]);
                 return;
@@ -86,8 +94,13 @@ public class CommandGroup extends CommandBase {
                 if (args.length < 2) {
                     throw new WrongUsageException("/group join <name>");
                 }
+                ScorePlayerTeam oldTeam = GroupManager.scoreboard(server).getPlayersTeam(sender.getName());
                 if (!GroupManager.join(server, sender.getName(), args[1])) {
                     throw new CommandException("Could not join " + args[1] + " - does it exist?");
+                }
+                TasksManager.syncPlayer(server, sender.getName());
+                if (oldTeam != null && !oldTeam.getName().equalsIgnoreCase(args[1])) {
+                    TasksManager.syncMembers(server, new ArrayList<String>(oldTeam.getMembershipCollection()));
                 }
                 Msg.send(sender, TextFormatting.GREEN, "Joined group: " + args[1]);
                 return;
@@ -96,8 +109,13 @@ public class CommandGroup extends CommandBase {
                 if (!isOp(sender) && !ModConfig.playersCanJoinLeaveFreely) {
                     throw new CommandException("Only operators can remove players from groups.");
                 }
+                ScorePlayerTeam oldTeam = GroupManager.scoreboard(server).getPlayersTeam(sender.getName());
                 if (!GroupManager.leave(server, sender.getName())) {
                     throw new CommandException("You are not in a group.");
+                }
+                TasksManager.syncPlayer(server, sender.getName());
+                if (oldTeam != null) {
+                    TasksManager.syncMembers(server, new ArrayList<String>(oldTeam.getMembershipCollection()));
                 }
                 Msg.send(sender, TextFormatting.YELLOW, "You left your group.");
                 return;
@@ -109,8 +127,13 @@ public class CommandGroup extends CommandBase {
                 if (args.length < 3) {
                     throw new WrongUsageException("/group add <player> <group>");
                 }
+                ScorePlayerTeam oldTeam = GroupManager.scoreboard(server).getPlayersTeam(args[1]);
                 if (!GroupManager.join(server, args[1], args[2])) {
                     throw new CommandException("Could not add " + args[1] + " to " + args[2]);
+                }
+                TasksManager.syncPlayer(server, args[1]);
+                if (oldTeam != null && !oldTeam.getName().equalsIgnoreCase(args[2])) {
+                    TasksManager.syncMembers(server, new ArrayList<String>(oldTeam.getMembershipCollection()));
                 }
                 Msg.send(sender, TextFormatting.GREEN, "Added " + args[1] + " to " + args[2]);
                 return;
@@ -122,8 +145,13 @@ public class CommandGroup extends CommandBase {
                 if (args.length < 2) {
                     throw new WrongUsageException("/group remove <player>");
                 }
+                ScorePlayerTeam oldTeam = GroupManager.scoreboard(server).getPlayersTeam(args[1]);
                 if (!GroupManager.leave(server, args[1])) {
                     throw new CommandException(args[1] + " is not in a group.");
+                }
+                TasksManager.syncPlayer(server, args[1]);
+                if (oldTeam != null) {
+                    TasksManager.syncMembers(server, new ArrayList<String>(oldTeam.getMembershipCollection()));
                 }
                 Msg.send(sender, TextFormatting.YELLOW, "Removed " + args[1] + " from their group.");
                 return;

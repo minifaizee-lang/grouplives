@@ -57,6 +57,26 @@ Players only need Forge on their client — the mod itself is server-side.
 Requests expire after 60 seconds. Taking damage during the countdown cancels
 the teleport. Warmup and request timeout are configurable.
 
+### Team tasks — `/task` + chat-side panel
+
+Opening the chat shows the **«ВАША КОМАНДА»** panel (top-left): every online
+teammate with their avatar, a done/total counter, and their tasks with
+checkboxes. Clicking a task marks or unmarks it — the board is visible only
+to that team's members and persists in the world save.
+
+| Command | Who | Effect |
+|---|---|---|
+| `/task add <text>` | everyone | Add a task to yourself, e.g. `/task add добыть булыжник 32 шт.` |
+| `/task addfor <player> <text>` | op | Add a task for someone |
+| `/task toggle <player> <n>` | teammates | Mark/unmark a task (also by clicking in the panel) |
+| `/task remove <player> <n>` | owner/op | Delete a task |
+| `/task clear` | everyone | Clear your own list |
+| `/task list` | everyone | Show your tasks in chat |
+
+Tasks are free text (auto-tracking of item counts is a possible future
+extension). The board syncs live to team members only; a player's tasks stay
+visible to the team while they are offline.
+
 ### Event management — `/event` + lobby GUI
 
 | Command | Who | Effect |

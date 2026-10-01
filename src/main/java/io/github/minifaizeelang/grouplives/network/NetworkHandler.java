@@ -23,6 +23,7 @@ public final class NetworkHandler {
     public static void init() {
         CHANNEL = NetworkRegistry.INSTANCE.newSimpleChannel(GroupLivesMod.MODID);
         CHANNEL.registerMessage(PacketEventState.class, PacketEventState.class, 0, Side.CLIENT);
+        CHANNEL.registerMessage(PacketTeamTasks.class, PacketTeamTasks.class, 1, Side.CLIENT);
     }
 
     public static void sendEventStateToAll(MinecraftServer server) {

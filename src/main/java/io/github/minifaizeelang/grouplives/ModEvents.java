@@ -31,6 +31,7 @@ public final class ModEvents {
         GroupManager.sendAllTabNamesTo(player.mcServer, player);
         GroupManager.updateTabName(player.mcServer, player);
         NetworkHandler.sendEventStateTo(player);
+        TasksManager.syncPlayer(player.mcServer, player.getName());
     }
 
     /**

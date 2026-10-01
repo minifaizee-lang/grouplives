@@ -5,6 +5,7 @@ import net.minecraft.command.CommandException;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.command.WrongUsageException;
 import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.item.Item;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.text.TextFormatting;
@@ -27,7 +28,7 @@ public class CommandTasks extends CommandBase {
 
     @Override
     public String getUsage(ICommandSender sender) {
-        return "/task <add <text>|addfor <player> <text>|toggle <player> <n>|remove <player> <n>|clear|list>";
+        return "/task <add <text>|additem <player> <mine|craft> <item> <n>|addfor <player> <text>|toggle <player> <n>|remove <player> <n>|clear|list>";
     }
 
     @Override
@@ -59,8 +60,39 @@ public class CommandTasks extends CommandBase {
                 if (text.isEmpty()) {
                     throw new WrongUsageException("/task add <text>");
                 }
-                TasksManager.add(server, self.getName(), text);
+                if (!TasksManager.add(server, self.getName(), text)) {
+                    throw new CommandException("Слишком много задач (максимум 32).");
+                }
                 Msg.send(sender, TextFormatting.GREEN, "Задача добавлена.");
+                return;
+            }
+            case "additem": {
+                if (args.length < 5) {
+                    throw new WrongUsageException("/task additem <player> <mine|craft> <item> <amount>");
+                }
+                EntityPlayerMP target = getPlayer(server, sender, args[1]);
+                if (!canTouch(server, sender, target.getName())) {
+                    throw new CommandException("Задачи можно ставить только членам своей команды.");
+                }
+                int type;
+                if ("mine".equalsIgnoreCase(args[2])) {
+                    type = TasksManager.TYPE_MINE;
+                } else if ("craft".equalsIgnoreCase(args[2])) {
+                    type = TasksManager.TYPE_CRAFT;
+                } else {
+                    throw new CommandException("Тип должен быть mine или craft.");
+                }
+                if (Item.getByNameOrId(args[3]) == null) {
+                    throw new CommandException("Неизвестный предмет: " + args[3]);
+                }
+                int amount = parseInt(args[4], 1);
+                if (!TasksManager.addStructured(server, target.getName(), type, args[3], amount)) {
+                    throw new CommandException("Слишком много задач (максимум 32).");
+                }
+                if (sender != target) {
+                    Msg.send(sender, TextFormatting.GREEN, "Задача добавлена для " + target.getName() + ".");
+                    Msg.send(target, TextFormatting.GOLD, sender.getName() + " добавил вам задачу.");
+                }
                 return;
             }
             case "addfor": {
@@ -134,11 +166,14 @@ public class CommandTasks extends CommandBase {
     @Override
     public List<String> getTabCompletions(MinecraftServer server, ICommandSender sender, String[] args, BlockPos pos) {
         if (args.length == 1) {
-            return getListOfStringsMatchingLastWord(args, "add", "addfor", "toggle", "remove", "clear", "list");
+            return getListOfStringsMatchingLastWord(args, "add", "additem", "addfor", "toggle", "remove", "clear", "list");
         }
         String first = args[0].toLowerCase();
-        if (args.length == 2 && ("toggle".equals(first) || "remove".equals(first) || "addfor".equals(first))) {
+        if (args.length == 2 && ("toggle".equals(first) || "remove".equals(first) || "addfor".equals(first) || "additem".equals(first))) {
             return getListOfStringsMatchingLastWord(args, server.getOnlinePlayerNames());
+        }
+        if (args.length == 3 && "additem".equals(first)) {
+            return getListOfStringsMatchingLastWord(args, "mine", "craft");
         }
         return Collections.emptyList();
     }

@@ -57,25 +57,30 @@ Players only need Forge on their client — the mod itself is server-side.
 Requests expire after 60 seconds. Taking damage during the countdown cancels
 the teleport. Warmup and request timeout are configurable.
 
-### Team tasks — `/task` + chat-side panel
+### Team tasks — `/task` + chat-side panel + constructor GUI
 
 Opening the chat shows the **«ВАША КОМАНДА»** panel (top-left): every online
 teammate with their avatar, a done/total counter, and their tasks with
 checkboxes. Clicking a task marks or unmarks it — the board is visible only
 to that team's members and persists in the world save.
 
+**Task constructor GUI** — Esc → **«Задачи команды»**: the left side shows the
+whole team board (click to mark, X removes your own task), the right side is
+a task constructor: pick the assignee, the action (ДОБЫТЬ / СКРАФТИТЬ), the
+item from a searchable icon grid (all blocks and items, mouse wheel scrolls)
+and the amount — then «ДОБАВИТЬ ЗАДАЧУ».
+
 | Command | Who | Effect |
 |---|---|---|
-| `/task add <text>` | everyone | Add a task to yourself, e.g. `/task add добыть булыжник 32 шт.` |
-| `/task addfor <player> <text>` | op | Add a task for someone |
+| `/task additem <player> <mine\|craft> <item> <n>` | teammates | Add a structured task (what the GUI sends) |
+| `/task add <text>` | everyone | Add a free-text task to yourself |
+| `/task addfor <player> <text>` | op | Add a text task for someone |
 | `/task toggle <player> <n>` | teammates | Mark/unmark a task (also by clicking in the panel) |
 | `/task remove <player> <n>` | owner/op | Delete a task |
-| `/task clear` | everyone | Clear your own list |
-| `/task list` | everyone | Show your tasks in chat |
+| `/task clear` / `/task list` | everyone | Clear / show your tasks |
 
-Tasks are free text (auto-tracking of item counts is a possible future
-extension). The board syncs live to team members only; a player's tasks stay
-visible to the team while they are offline.
+Tasks are stored per player (max 32), sync live to team members only and stay
+visible to the team while the player is offline.
 
 ### Event management — `/event` + lobby GUI
 

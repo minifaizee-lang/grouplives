@@ -27,12 +27,18 @@ public final class ClientState {
     public static class TaskEntry {
         public final String player;
         public final int index;
+        public final int type;
+        public final String itemId;
+        public final int amount;
         public final String text;
         public final boolean done;
 
-        public TaskEntry(String player, int index, String text, boolean done) {
+        public TaskEntry(String player, int index, int type, String itemId, int amount, String text, boolean done) {
             this.player = player;
             this.index = index;
+            this.type = type;
+            this.itemId = itemId;
+            this.amount = amount;
             this.text = text;
             this.done = done;
         }

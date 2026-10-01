@@ -43,6 +43,23 @@ public final class TaskHud {
     /** Clickable task rows, recomputed on every draw (client thread only). */
     private static final List<Row> rows = new ArrayList<Row>();
 
+    /** Localized display-name cache for structured task items. */
+    private static final Map<String, String> DISPLAY_CACHE = new java.util.HashMap<String, String>();
+
+    /** Human-readable text for a task: structured ("добыть X x3") or legacy text. */
+    public static String taskText(ClientState.TaskEntry task) {
+        if (task.type < 0) {
+            return task.text == null ? "" : task.text;
+        }
+        String name = DISPLAY_CACHE.get(task.itemId);
+        if (name == null) {
+            net.minecraft.item.Item item = net.minecraft.item.Item.getByNameOrId(task.itemId);
+            name = item == null ? task.itemId : new net.minecraft.item.ItemStack(item).getDisplayName();
+            DISPLAY_CACHE.put(task.itemId, name);
+        }
+        return (task.type == 0 ? "добыть " : "скрафтить ") + name + " x" + task.amount;
+    }
+
     private TaskHud() {
     }
 
@@ -132,7 +149,7 @@ public final class TaskHud {
                     Gui.drawRect(x + 12, ry + 1, x + 13, ry + 7, 0xFFE8B33C);
                     Gui.drawRect(x + 17, ry + 1, x + 18, ry + 7, 0xFFE8B33C);
                 }
-                String text = (task.done ? "+ " : "") + task.text;
+                String text = (task.done ? "+ " : "") + taskText(task);
                 mc.fontRenderer.drawStringWithShadow(truncate(mc, text, w - 36), x + 22, ry,
                         task.done ? 0xFF6E6480 : 0xFFF5F2F7);
                 rows.add(new Row(x + 8, ry - 1, w - 16, 11, task.player, task.index));

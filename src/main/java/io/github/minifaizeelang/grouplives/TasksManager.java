@@ -16,18 +16,38 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Team task board: every player can have free-text tasks, marked done by
- * clicking them in the chat-side panel. The board is stored in the world
- * save and synced only to the player's team members.
+ * Team task board: structured tasks (mine/craft an item in an amount) plus
+ * legacy free-text tasks, stored per player in the world save and synced
+ * only to the player's team members.
  */
 public final class TasksManager {
 
+    public static final int MAX_TASKS_PER_PLAYER = 32;
+
+    /** Task types: 0 = mine/obtain, 1 = craft, -1 = legacy free text. */
+    public static final int TYPE_MINE = 0;
+    public static final int TYPE_CRAFT = 1;
+    public static final int TYPE_TEXT = -1;
+
     public static class Task {
+        public int type = TYPE_TEXT;
+        public String itemId;
+        public int amount = 1;
         public String text;
         public boolean done;
 
-        public Task(String text) {
-            this.text = text;
+        public static Task structured(int type, String itemId, int amount) {
+            Task task = new Task();
+            task.type = type;
+            task.itemId = itemId;
+            task.amount = amount;
+            return task;
+        }
+
+        public static Task legacy(String text) {
+            Task task = new Task();
+            task.text = text;
+            return task;
         }
     }
 
@@ -71,7 +91,12 @@ public final class TasksManager {
                 NBTTagList taskTags = pc.getTagList("Tasks", 10);
                 for (int j = 0; j < taskTags.tagCount(); j++) {
                     NBTTagCompound tc = taskTags.getCompoundTagAt(j);
-                    Task task = new Task(tc.getString("Text"));
+                    Task task;
+                    if (tc.hasKey("Item")) {
+                        task = Task.structured(tc.getInteger("Type"), tc.getString("Item"), tc.getInteger("Amount"));
+                    } else {
+                        task = Task.legacy(tc.getString("Text"));
+                    }
                     task.done = tc.getBoolean("Done");
                     list.add(task);
                 }
@@ -88,7 +113,13 @@ public final class TasksManager {
                 NBTTagList taskTags = new NBTTagList();
                 for (Task task : entry.getValue()) {
                     NBTTagCompound tc = new NBTTagCompound();
-                    tc.setString("Text", task.text);
+                    if (task.type >= 0) {
+                        tc.setInteger("Type", task.type);
+                        tc.setString("Item", task.itemId);
+                        tc.setInteger("Amount", task.amount);
+                    } else {
+                        tc.setString("Text", task.text);
+                    }
                     tc.setBoolean("Done", task.done);
                     taskTags.appendTag(tc);
                 }
@@ -114,9 +145,24 @@ public final class TasksManager {
     // Mutations (each one saves and re-syncs the team board)
     // ------------------------------------------------------------------
 
-    public static void add(MinecraftServer server, String playerName, String text) {
-        data(server).mutable(playerName).add(new Task(text));
+    public static boolean add(MinecraftServer server, String playerName, String text) {
+        List<Task> list = data(server).mutable(playerName);
+        if (list.size() >= MAX_TASKS_PER_PLAYER) {
+            return false;
+        }
+        list.add(Task.legacy(text));
         syncPlayer(server, playerName);
+        return true;
+    }
+
+    public static boolean addStructured(MinecraftServer server, String playerName, int type, String itemId, int amount) {
+        List<Task> list = data(server).mutable(playerName);
+        if (list.size() >= MAX_TASKS_PER_PLAYER) {
+            return false;
+        }
+        list.add(Task.structured(type, itemId, amount));
+        syncPlayer(server, playerName);
+        return true;
     }
 
     public static boolean toggle(MinecraftServer server, String playerName, int index) {
@@ -163,7 +209,9 @@ public final class TasksManager {
         for (String member : members) {
             List<Task> list = data(server).get(member);
             for (int i = 0; i < list.size(); i++) {
-                entries.add(new PacketTeamTasks.Entry(member, i, list.get(i).text, list.get(i).done));
+                Task task = list.get(i);
+                entries.add(new PacketTeamTasks.Entry(member, i, task.type, task.itemId,
+                        task.amount, task.text, task.done));
             }
         }
         return new PacketTeamTasks(entries);

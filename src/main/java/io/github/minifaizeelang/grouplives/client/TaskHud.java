@@ -1,42 +1,48 @@
 package io.github.minifaizeelang.grouplives.client;
 
 import io.github.minifaizeelang.grouplives.GroupLivesMod;
+import io.github.minifaizeelang.grouplives.ModConfig;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.GuiChat;
+import net.minecraft.client.gui.ScaledResolution;
 import net.minecraft.client.network.NetworkPlayerInfo;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraftforge.client.event.GuiScreenEvent;
+import net.minecraftforge.client.event.RenderGameOverlayEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.relauncher.Side;
 import org.lwjgl.input.Mouse;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 /**
- * The chat-side team panel: while the chat is open, draws "ВАША КОМАНДА"
- * (team members with avatars, per-player task counters and their tasks with
- * checkboxes) in the top-left corner. Clicking a task row toggles it via
- * /task toggle. The server only ever sends this board to team members.
+ * The team task panel. Always visible on the HUD (below the minimap) and
+ * interactive in two places: over the chat and inside the quick-tasks
+ * overlay screen (Tasks key). Only the assignee marks their own task.
+ * The server never sends the board to non-team players.
  */
 @Mod.EventBusSubscriber(value = Side.CLIENT, modid = GroupLivesMod.MODID)
 public final class TaskHud {
 
-    private static class Row {
+    public static class Row {
         final int x, y, w, h, index;
         final String player;
+        final boolean mine;
 
-        Row(int x, int y, int w, int h, String player, int index) {
+        Row(int x, int y, int w, int h, String player, int index, boolean mine) {
             this.x = x;
             this.y = y;
             this.w = w;
             this.h = h;
             this.player = player;
             this.index = index;
+            this.mine = mine;
         }
     }
 
@@ -44,7 +50,10 @@ public final class TaskHud {
     private static final List<Row> rows = new ArrayList<Row>();
 
     /** Localized display-name cache for structured task items. */
-    private static final Map<String, String> DISPLAY_CACHE = new java.util.HashMap<String, String>();
+    private static final Map<String, String> DISPLAY_CACHE = new HashMap<String, String>();
+
+    private TaskHud() {
+    }
 
     /** Human-readable text for a task: structured ("добыть X x3") or legacy text. */
     public static String taskText(ClientState.TaskEntry task) {
@@ -60,20 +69,44 @@ public final class TaskHud {
         return (task.type == 0 ? "добыть " : "скрафтить ") + name + " x" + task.amount;
     }
 
-    private TaskHud() {
+    // ------------------------------------------------------------------
+    // Rendering: HUD (always) + chat (interactive)
+    // ------------------------------------------------------------------
+
+    /** Always-on HUD copy; hidden while any screen is open (those draw their own). */
+    @SubscribeEvent
+    public static void onRenderHud(RenderGameOverlayEvent.Post event) {
+        if (event.getType() != RenderGameOverlayEvent.ElementType.ALL) {
+            return;
+        }
+        Minecraft mc = Minecraft.getMinecraft();
+        if (mc.currentScreen != null || mc.player == null || mc.world == null) {
+            return;
+        }
+        rows.clear();
+        drawPanel(mc, true);
     }
 
+    /** Interactive copy over the chat. */
     @SubscribeEvent
     public static void onDrawScreen(GuiScreenEvent.DrawScreenEvent.Post event) {
         Minecraft mc = Minecraft.getMinecraft();
         if (!(event.getGui() instanceof GuiChat) || mc.player == null || mc.world == null) {
             return;
         }
+        rows.clear();
+        drawPanel(mc, true);
+    }
+
+    /**
+     * Draws the panel at (8, taskPanelTopOffset) and, when interactive,
+     * records click regions for own tasks. Shared by HUD, chat and overlay.
+     */
+    public static void drawPanel(Minecraft mc, boolean interactive) {
         if (ClientState.teamTasks.isEmpty()) {
+            rows.clear();
             return;
         }
-        rows.clear();
-
         Map<String, List<ClientState.TaskEntry>> byPlayer =
                 new LinkedHashMap<String, List<ClientState.TaskEntry>>();
         for (ClientState.TaskEntry entry : ClientState.teamTasks) {
@@ -87,16 +120,16 @@ public final class TaskHud {
 
         int x = 8;
         int w = 180;
-        int y = 8;
-        int headerH = 24;
-        int maxH = mc.currentScreen.height - 140;
+        int y = ModConfig.taskPanelTopOffset;
+        ScaledResolution sr = new ScaledResolution(mc);
+        int maxH = Math.max(60, sr.getScaledHeight() - y - 60);
         int contentH = 0;
         for (List<ClientState.TaskEntry> tasks : byPlayer.values()) {
             contentH += 15 + tasks.size() * 10 + 3;
         }
-        int panelH = Math.min(headerH + contentH + 8, maxH);
+        int panelH = Math.min(24 + contentH + 8, maxH);
 
-        Gui.drawRect(x, y, x + w, y + panelH, 0xE617121C);
+        Gui.drawRect(x, y, x + w, y + panelH, 0xD017121C);
         Gui.drawRect(x, y, x + w, y + 1, 0xFF3B3344);
         Gui.drawRect(x, y + panelH - 1, x + w, y + panelH, 0xFF3B3344);
         Gui.drawRect(x, y, x + 1, y + panelH, 0xFF3B3344);
@@ -106,7 +139,7 @@ public final class TaskHud {
         mc.fontRenderer.drawStringWithShadow("ВАША КОМАНДА", x + 12, y + 5, 0xFFF5F2F7);
         mc.fontRenderer.drawStringWithShadow("нажмите на задачу, чтобы отметить", x + 12, y + 14, 0xFF6E6480);
 
-        int ry = y + headerH;
+        int ry = y + 24;
         int bottom = y + panelH - 4;
         outer:
         for (Map.Entry<String, List<ClientState.TaskEntry>> entry : byPlayer.entrySet()) {
@@ -136,11 +169,13 @@ public final class TaskHud {
                     x + w - 8 - mc.fontRenderer.getStringWidth(counter), ry + 2, 0xFFE8B33C);
             ry += 14;
 
+            boolean minePlayer = mc.player != null && entry.getKey().equals(mc.player.getName());
             for (ClientState.TaskEntry task : tasks) {
                 if (ry + 10 > bottom) {
                     mc.fontRenderer.drawStringWithShadow("...", x + 14, ry, 0xFF6E6480);
                     break outer;
                 }
+                boolean mine = interactive && minePlayer;
                 if (task.done) {
                     Gui.drawRect(x + 12, ry + 1, x + 18, ry + 7, 0xFF7CC24A);
                 } else {
@@ -152,11 +187,43 @@ public final class TaskHud {
                 String text = (task.done ? "+ " : "") + taskText(task);
                 mc.fontRenderer.drawStringWithShadow(truncate(mc, text, w - 36), x + 22, ry,
                         task.done ? 0xFF6E6480 : 0xFFF5F2F7);
-                rows.add(new Row(x + 8, ry - 1, w - 16, 11, task.player, task.index));
+                if (interactive) {
+                    rows.add(new Row(x + 8, ry - 1, w - 16, 11, task.player, task.index, mine));
+                }
                 ry += 10;
             }
             ry += 3;
         }
+    }
+
+    private static String truncate(Minecraft mc, String text, int maxWidth) {
+        if (mc.fontRenderer.getStringWidth(text) <= maxWidth) {
+            return text;
+        }
+        while (text.length() > 1 && mc.fontRenderer.getStringWidth(text + "...") > maxWidth) {
+            text = text.substring(0, text.length() - 1);
+        }
+        return text + "...";
+    }
+
+    // ------------------------------------------------------------------
+    // Clicks (only the assignee can mark their own task)
+    // ------------------------------------------------------------------
+
+    /** Marks a clicked own task; returns true when a row was hit. */
+    public static boolean handlePanelClick(Minecraft mc, int mouseX, int mouseY) {
+        for (Row row : rows) {
+            if (!row.mine) {
+                continue;
+            }
+            if (mouseX >= row.x && mouseX <= row.x + row.w && mouseY >= row.y && mouseY <= row.y + row.h) {
+                if (mc.player != null) {
+                    mc.player.sendChatMessage("/task toggle " + row.player + " " + row.index);
+                }
+                return true;
+            }
+        }
+        return false;
     }
 
     @SubscribeEvent
@@ -170,22 +237,8 @@ public final class TaskHud {
         }
         int mx = Mouse.getEventX() * mc.currentScreen.width / mc.displayWidth;
         int my = mc.currentScreen.height - Mouse.getEventY() * mc.currentScreen.height / mc.displayHeight - 1;
-        for (Row row : rows) {
-            if (mx >= row.x && mx <= row.x + row.w && my >= row.y && my <= row.y + row.h) {
-                mc.player.sendChatMessage("/task toggle " + row.player + " " + row.index);
-                event.setCanceled(true);
-                return;
-            }
+        if (handlePanelClick(mc, mx, my)) {
+            event.setCanceled(true);
         }
-    }
-
-    private static String truncate(Minecraft mc, String text, int maxWidth) {
-        if (mc.fontRenderer.getStringWidth(text) <= maxWidth) {
-            return text;
-        }
-        while (text.length() > 1 && mc.fontRenderer.getStringWidth(text + "...") > maxWidth) {
-            text = text.substring(0, text.length() - 1);
-        }
-        return text + "...";
     }
 }

@@ -57,18 +57,20 @@ Players only need Forge on their client — the mod itself is server-side.
 Requests expire after 60 seconds. Taking damage during the countdown cancels
 the teleport. Warmup and request timeout are configurable.
 
-### Team tasks — `/task` + chat-side panel + constructor GUI
+### Team tasks — `/task` + always-visible panel + constructor GUI
 
-Opening the chat shows the **«ВАША КОМАНДА»** panel (top-left): every online
-teammate with their avatar, a done/total counter, and their tasks with
-checkboxes. Clicking a task marks or unmarks it — the board is visible only
-to that team's members and persists in the world save.
+The **«ВАША КОМАНДА»** panel is always visible on the HUD (below the
+minimap; the offset is configurable via `taskPanelTopOffset` in the config):
+every online teammate with their avatar, a done/total counter, and their
+tasks with checkboxes. Only the player who was assigned a task can mark it
+done — by clicking it (server-enforced). Two click surfaces:
 
-**Task constructor GUI** — Esc → **«Задачи команды»**: the left side shows the
-whole team board (click to mark, X removes your own task), the right side is
-a task constructor: pick the assignee, the action (ДОБЫТЬ / СКРАФТИТЬ), the
-item from a searchable icon grid (all blocks and items, mouse wheel scrolls)
-and the amount — then «ДОБАВИТЬ ЗАДАЧУ».
+- **Quick overlay** — press **J** (rebindable, «Быстрые задачи»): a
+  transparent, non-pausing panel over the world; click your tasks, press
+  J/Esc to close. No chat needed.
+- **Over the chat** — the same panel stays clickable while the chat is open.
+- **Constructor GUI** — Esc → **«Задачи команды»**: the full board plus the
+  task constructor (assignee, ДОБЫТЬ/СКРАФТИТЬ, item grid, amount).
 
 | Command | Who | Effect |
 |---|---|---|

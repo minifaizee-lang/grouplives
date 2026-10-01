@@ -114,8 +114,8 @@ public class CommandTasks extends CommandBase {
                     throw new WrongUsageException("/task toggle <player> <n>");
                 }
                 EntityPlayerMP target = getPlayer(server, sender, args[1]);
-                if (!canTouch(server, sender, target.getName())) {
-                    throw new CommandException("Отмечать можно только задачи своей команды.");
+                if (!sender.getName().equalsIgnoreCase(target.getName()) && !isOp(sender)) {
+                    throw new CommandException("Отметить задачу может только тот, кому она назначена.");
                 }
                 int index = parseInt(args[2], 0);
                 if (!TasksManager.toggle(server, target.getName(), index)) {

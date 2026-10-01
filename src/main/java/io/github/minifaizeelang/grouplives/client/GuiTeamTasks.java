@@ -514,11 +514,14 @@ public class GuiTeamTasks extends GuiScreen {
             }
         }
 
-        // Board rows: whole row toggles; X zone (right 12px) removes own tasks
+        // Board rows: own rows toggle (whole row) and X zone removes; other players' rows are read-only
         if (mouseButton == 0 && mc.player != null) {
             for (BoardRow row : boardRows) {
                 if (mouseX >= row.x && mouseX <= row.x + row.w && mouseY >= row.y && mouseY <= row.y + row.h) {
-                    if (row.mine && mouseX > row.x + row.w - 14) {
+                    if (!row.mine) {
+                        return;
+                    }
+                    if (mouseX > row.x + row.w - 14) {
                         sendCommand("/task remove " + row.player + " " + row.index);
                     } else {
                         sendCommand("/task toggle " + row.player + " " + row.index);

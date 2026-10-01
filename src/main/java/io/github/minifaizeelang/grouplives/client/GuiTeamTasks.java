@@ -24,7 +24,8 @@ import java.util.Map;
 /**
  * Team tasks screen: the whole team board (click a task to mark it, X
  * removes your own) plus a task constructor - pick the assignee, the action
- * (mine/craft), the item from a searchable icon grid, and the amount.
+ * (mine/craft), the item from a searchable icon grid, and the amount (typed
+ * or via steppers/chips).
  */
 public class GuiTeamTasks extends GuiScreen {
 
@@ -50,11 +51,17 @@ public class GuiTeamTasks extends GuiScreen {
     private int memberIndex;
     private int actionType; // 0 = mine, 1 = craft
     private GuiTextField searchField;
+    private GuiTextField amountField;
     private String searchQuery = "";
     private List<ItemStack> filtered = new ArrayList<ItemStack>();
     private int gridScroll;
     private String selectedItemId;
-    private int amount = 1;
+    private int hoveredCell = -1;
+
+    private int panelY;
+    private int panelH;
+    private int gridY;
+    private int gridRows;
 
     private static class BoardRow {
         final int x, y, w, h, index;
@@ -96,20 +103,12 @@ public class GuiTeamTasks extends GuiScreen {
         return this.width - this.width / 2 - 8 - 8;
     }
 
-    private int topY() {
-        return 28;
+    private int gridX() {
+        return panelX() + 4;
     }
 
     private int gridCols() {
         return Math.max(1, (panelW() - 8) / 19);
-    }
-
-    private int gridRows() {
-        return 3;
-    }
-
-    private int gridY() {
-        return topY() + 68;
     }
 
     @Override
@@ -117,32 +116,48 @@ public class GuiTeamTasks extends GuiScreen {
         this.buttonList.clear();
         this.boardRows.clear();
 
+        // Panel stretches over the full right column; the grid takes all the space left.
+        this.panelY = 28;
+        this.panelH = this.height - 30 - this.panelY;
+        this.gridY = this.panelY + 70;
+        int gridBottom = this.panelY + this.panelH - 64;
+        this.gridRows = Math.max(2, (gridBottom - this.gridY) / 19);
+
         this.members = onlineTeamMembers();
         if (this.memberIndex >= this.members.size()) {
             this.memberIndex = 0;
         }
 
         if (hasTeam()) {
-            this.searchField = new GuiTextField(0, this.fontRenderer, panelX() + 4, topY() + 52, panelW() - 34, 14);
+            this.searchField = new GuiTextField(0, this.fontRenderer, panelX() + 4, panelY + 52, panelW() - 34, 14);
             this.searchField.setMaxStringLength(32);
-            this.buttonList.add(new GuiButton(ID_MEMBER_CYCLE, panelX() + 4, topY() + 16, panelW() - 8, 16,
-                    "Кому: " + this.members.get(this.memberIndex)));
-            this.buttonList.add(new GuiButton(ID_ACTION_CYCLE, panelX() + 4, topY() + 34, panelW() - 8, 16,
-                    "Действие: " + (actionType == 0 ? "ДОБЫТЬ" : "СКРАФТИТЬ")));
-            this.buttonList.add(new GuiButton(ID_SCROLL_UP, panelX() + panelW() - 26, topY() + 52, 22, 6, "^"));
-            this.buttonList.add(new GuiButton(ID_SCROLL_DOWN, panelX() + panelW() - 26, topY() + 62, 22, 6, "v"));
-            this.buttonList.add(new GuiButton(ID_AMOUNT_MINUS, panelX() + 4, topY() + 138, 14, 14, "-"));
+            this.amountField = new GuiTextField(1, this.fontRenderer, panelX() + 4, panelY + panelH - 46, 40, 14);
+            this.amountField.setMaxStringLength(5);
+            this.amountField.setText(String.valueOf(1));
+            this.amountField.setValidator(s -> s.isEmpty() || s.matches("\\d{1,5}"));
+
+            this.buttonList.add(makeCycleButton(ID_MEMBER_CYCLE, panelY + 16, "Кому: " + this.members.get(this.memberIndex), 0xFF5B8FFB));
+            this.buttonList.add(makeCycleButton(ID_ACTION_CYCLE, panelY + 34, "Действие: " + (actionType == 0 ? "ДОБЫТЬ" : "СКРАФТИТЬ"), 0xFF7CC24A));
+            this.buttonList.add(new GuiButton(ID_SCROLL_UP, panelX() + panelW() - 26, panelY + 52, 22, 7, "^"));
+            this.buttonList.add(new GuiButton(ID_SCROLL_DOWN, panelX() + panelW() - 26, panelY + 59, 22, 7, "v"));
+            this.buttonList.add(new GuiButton(ID_AMOUNT_MINUS, panelX() + panelW() - 64, panelY + panelH - 46, 14, 14, "-"));
+            this.buttonList.add(new GuiButton(ID_AMOUNT_PLUS, panelX() + panelW() - 48, panelY + panelH - 46, 14, 14, "+"));
             for (int i = 0; i < CHIPS.length; i++) {
-                this.buttonList.add(new GuiButton(ID_CHIP_BASE + i, panelX() + 22 + i * 30, topY() + 138, 26, 14,
-                        String.valueOf(CHIPS[i])));
+                this.buttonList.add(new GuiButton(ID_CHIP_BASE + i,
+                        panelX() + panelW() - 230 + i * 30, panelY + panelH - 46, 26, 14, String.valueOf(CHIPS[i])));
             }
-            this.buttonList.add(new GuiButton(ID_AMOUNT_PLUS, panelX() + 22 + CHIPS.length * 30, topY() + 138, 14, 14, "+"));
-            PanelButton add = new PanelButton(ID_ADD, panelX() + 4, topY() + 158, panelW() - 8, 18,
+            PanelButton add = new PanelButton(ID_ADD, panelX() + 4, panelY + panelH - 24, panelW() - 8, 18,
                     "ДОБАВИТЬ ЗАДАЧУ", 0xFFE8B33C);
             this.buttonList.add(add);
         }
         this.buttonList.add(new GuiButton(ID_BACK, this.width - 70, this.height - 22, 60, 16, "Назад"));
         refilter();
+    }
+
+    /** Cycle buttons must never be vanilla (their texture breaks past 200px) - use our own drawing. */
+    private PanelButton makeCycleButton(int id, int y, String label, int accent) {
+        String label2 = truncate(label, panelW() - 30);
+        return new PanelButton(id, panelX() + 4, y, panelW() - 8, 16, label2, accent);
     }
 
     private boolean hasTeam() {
@@ -207,14 +222,32 @@ public class GuiTeamTasks extends GuiScreen {
                 filtered.add(stack);
             }
         }
-        int maxScroll = Math.max(0, (filtered.size() + gridCols() - 1) / gridCols() - gridRows());
-        gridScroll = Math.min(gridScroll, maxScroll);
+        gridScroll = Math.min(gridScroll, maxScroll());
+    }
+
+    private int maxScroll() {
+        return Math.max(0, (filtered.size() + gridCols() - 1) / gridCols() - gridRows);
+    }
+
+    private int amount() {
+        try {
+            return Math.max(1, Math.min(99999, Integer.parseInt(this.amountField.getText().trim())));
+        } catch (NumberFormatException e) {
+            return 1;
+        }
+    }
+
+    private void setAmount(int value) {
+        this.amountField.setText(String.valueOf(Math.max(1, Math.min(99999, value))));
     }
 
     @Override
     public void updateScreen() {
         if (this.searchField != null) {
             this.searchField.updateCursorCounter();
+        }
+        if (this.amountField != null) {
+            this.amountField.updateCursorCounter();
         }
     }
 
@@ -242,21 +275,25 @@ public class GuiTeamTasks extends GuiScreen {
         if (this.searchField != null) {
             this.searchField.drawTextBox();
         }
+        if (this.amountField != null) {
+            this.amountField.drawTextBox();
+        }
     }
 
     private void drawBoard() {
         int x = boardX();
         int w = boardW();
+        int top = panelY;
         int bottom = this.height - 30;
-        Gui.drawRect(x, topY(), x + w, bottom, 0xE617121C);
-        Gui.drawRect(x, topY(), x + w, topY() + 1, 0xFF3B3344);
+        Gui.drawRect(x, top, x + w, bottom, 0xE617121C);
+        Gui.drawRect(x, top, x + w, top + 1, 0xFF3B3344);
         Gui.drawRect(x, bottom - 1, x + w, bottom, 0xFF3B3344);
-        Gui.drawRect(x, topY(), x + 1, bottom, 0xFF3B3344);
-        Gui.drawRect(x + w - 1, topY(), x + w, bottom, 0xFF3B3344);
-        Gui.drawRect(x + 3, topY() + 3, x + 6, bottom - 3, 0xFF5B8FFB);
+        Gui.drawRect(x, top, x + 1, bottom, 0xFF3B3344);
+        Gui.drawRect(x + w - 1, top, x + w, bottom, 0xFF3B3344);
+        Gui.drawRect(x + 3, top + 3, x + 6, bottom - 3, 0xFF5B8FFB);
 
-        this.fontRenderer.drawStringWithShadow("ДОСКА ЗАДАЧ", x + 12, topY() + 5, 0xFFF5F2F7);
-        this.fontRenderer.drawStringWithShadow("клик - отметить | X - удалить своё", x + 12, topY() + 15, 0xFF6E6480);
+        this.fontRenderer.drawStringWithShadow("ДОСКА ЗАДАЧ", x + 12, top + 5, 0xFFF5F2F7);
+        this.fontRenderer.drawStringWithShadow("клик - отметить | X - удалить своё", x + 12, top + 15, 0xFF6E6480);
 
         boardRows.clear();
         Map<String, List<ClientState.TaskEntry>> byPlayer =
@@ -275,7 +312,7 @@ public class GuiTeamTasks extends GuiScreen {
                 ? sb.getPlayersTeam(this.mc.player.getName()) : null;
         int accent = myTeam != null ? colorOf(myTeam) : 0xFF5B8FFB;
 
-        int ry = topY() + 28;
+        int ry = top + 28;
         outer:
         for (Map.Entry<String, List<ClientState.TaskEntry>> entry : byPlayer.entrySet()) {
             if (ry + 16 > bottom) {
@@ -307,7 +344,7 @@ public class GuiTeamTasks extends GuiScreen {
             for (ClientState.TaskEntry task : tasks) {
                 boolean mine = this.mc.player != null && task.player.equals(this.mc.player.getName());
                 int rowH = task.type >= 0 ? 18 : 11;
-                if (ry + rowH > bottom) {
+                if (ry + rowH > bottom - 2) {
                     this.fontRenderer.drawStringWithShadow("...", x + 14, ry, 0xFF6E6480);
                     break outer;
                 }
@@ -335,8 +372,8 @@ public class GuiTeamTasks extends GuiScreen {
     private void drawConstructor(int mouseX, int mouseY) {
         int px = panelX();
         int pw = panelW();
-        int py = topY();
-        int ph = this.height - 30 - py;
+        int py = panelY;
+        int ph = panelH;
         Gui.drawRect(px, py, px + pw, py + ph, 0xE617121C);
         Gui.drawRect(px, py, px + pw, py + 1, 0xFF3B3344);
         Gui.drawRect(px, py + ph - 1, px + pw, py + ph, 0xFF3B3344);
@@ -347,12 +384,13 @@ public class GuiTeamTasks extends GuiScreen {
         this.fontRenderer.drawStringWithShadow("НОВАЯ ЗАДАЧА", px + 12, py + 5, 0xFFE8B33C);
 
         // Item grid
-        int gx = px + 4;
-        int gy = gridY();
+        int gx = gridX();
+        int gy = gridY;
         int cols = gridCols();
-        Gui.drawRect(gx - 2, gy - 2, gx + cols * 19 + 1, gy + gridRows() * 19 - 1, 0xFF0E0B12);
+        Gui.drawRect(gx - 2, gy - 2, gx + cols * 19 + 1, gy + gridRows * 19 - 1, 0xFF0E0B12);
         String selectedName = "";
-        for (int row = 0; row < gridRows(); row++) {
+        hoveredCell = -1;
+        for (int row = 0; row < gridRows; row++) {
             for (int col = 0; col < cols; col++) {
                 int i = (gridScroll + row) * cols + col;
                 if (i >= filtered.size()) {
@@ -362,8 +400,12 @@ public class GuiTeamTasks extends GuiScreen {
                 int cellX = gx + col * 19;
                 int cellY = gy + row * 19;
                 boolean isSelected = stack.getItem().getRegistryName().toString().equals(selectedItemId);
+                boolean isHovered = mouseX >= cellX && mouseX < cellX + 17 && mouseY >= cellY && mouseY < cellY + 17;
                 if (isSelected) {
                     Gui.drawRect(cellX - 1, cellY - 1, cellX + 17, cellY + 17, 0xFFF5F2F7);
+                } else if (isHovered) {
+                    Gui.drawRect(cellX - 1, cellY - 1, cellX + 17, cellY + 17, 0xFF5B8FFB);
+                    hoveredCell = i;
                 }
                 mc.getRenderItem().renderItemAndEffectIntoGUI(stack, cellX, cellY);
                 mc.getRenderItem().renderItemOverlayIntoGUI(mc.fontRenderer, stack, cellX, cellY, null);
@@ -377,9 +419,9 @@ public class GuiTeamTasks extends GuiScreen {
         }
         this.fontRenderer.drawStringWithShadow(
                 selectedName.isEmpty() ? "выберите предмет из сетки" : truncate(selectedName, pw - 24),
-                px + 12, gy + gridRows() * 19 + 4, selectedName.isEmpty() ? 0xFF6E6480 : 0xFFF5F2F7);
+                px + 12, py + ph - 60, selectedName.isEmpty() ? 0xFF6E6480 : 0xFFF5F2F7);
 
-        this.fontRenderer.drawStringWithShadow("Кол-во: " + amount, px + 12, py + 141, 0xFFF5F2F7);
+        this.fontRenderer.drawStringWithShadow("Кол-во:", px + panelW() - 250, py + ph - 42, 0xFF9A8FA8);
     }
 
     private String truncate(String text, int maxWidth) {
@@ -405,7 +447,7 @@ public class GuiTeamTasks extends GuiScreen {
             case ID_MEMBER_CYCLE:
                 if (!members.isEmpty()) {
                     memberIndex = (memberIndex + 1) % members.size();
-                    button.displayString = "Кому: " + members.get(memberIndex);
+                    button.displayString = truncate("Кому: " + members.get(memberIndex), panelW() - 30);
                 }
                 return;
             case ID_ACTION_CYCLE:
@@ -419,28 +461,24 @@ public class GuiTeamTasks extends GuiScreen {
                 gridScroll = Math.min(maxScroll(), gridScroll + 1);
                 return;
             case ID_AMOUNT_MINUS:
-                amount = Math.max(1, amount - 1);
+                setAmount(amount() - 1);
                 return;
             case ID_AMOUNT_PLUS:
-                amount = Math.min(9999, amount + 1);
+                setAmount(amount() + 1);
                 return;
             case ID_ADD: {
                 if (members.isEmpty() || selectedItemId == null) {
                     return;
                 }
                 sendCommand("/task additem " + members.get(memberIndex) + " "
-                        + (actionType == 0 ? "mine" : "craft") + " " + selectedItemId + " " + amount);
+                        + (actionType == 0 ? "mine" : "craft") + " " + selectedItemId + " " + amount());
                 return;
             }
             default:
         }
         if (button.id >= ID_CHIP_BASE && button.id < ID_CHIP_BASE + CHIPS.length) {
-            amount = CHIPS[button.id - ID_CHIP_BASE];
+            setAmount(CHIPS[button.id - ID_CHIP_BASE]);
         }
-    }
-
-    private int maxScroll() {
-        return Math.max(0, (filtered.size() + gridCols() - 1) / gridCols() - gridRows());
     }
 
     private void sendCommand(String command) {
@@ -456,15 +494,18 @@ public class GuiTeamTasks extends GuiScreen {
             this.searchField.mouseClicked(mouseX, mouseY, mouseButton);
             refilter();
         }
+        if (this.amountField != null) {
+            this.amountField.mouseClicked(mouseX, mouseY, mouseButton);
+        }
 
         // Item grid cells
         if (mouseButton == 0) {
-            int gx = panelX() + 4;
-            int gy = gridY();
+            int gx = gridX();
+            int gy = gridY;
             int cols = gridCols();
             int col = (mouseX - gx) / 19;
             int row = (mouseY - gy) / 19;
-            if (col >= 0 && col < cols && row >= 0 && row < gridRows()
+            if (col >= 0 && col < cols && row >= 0 && row < gridRows
                     && mouseX >= gx && mouseY >= gy) {
                 int i = (gridScroll + row) * cols + col;
                 if (i >= 0 && i < filtered.size()) {
@@ -495,8 +536,8 @@ public class GuiTeamTasks extends GuiScreen {
         if (wheel != 0) {
             int mx = Mouse.getX() * this.width / this.mc.displayWidth;
             int my = this.height - Mouse.getY() * this.height / this.mc.displayHeight - 1;
-            int gy = gridY();
-            if (mx >= panelX() && mx <= panelX() + panelW() && my >= gy - 4 && my <= gy + gridRows() * 19 + 4) {
+            int gy = gridY;
+            if (mx >= panelX() && mx <= panelX() + panelW() && my >= gy - 4 && my <= gy + gridRows * 19 + 4) {
                 int step = wheel > 0 ? -1 : 1;
                 gridScroll = Math.max(0, Math.min(maxScroll(), gridScroll + step));
             }
@@ -505,6 +546,14 @@ public class GuiTeamTasks extends GuiScreen {
 
     @Override
     protected void keyTyped(char typedChar, int keyCode) throws IOException {
+        if (this.amountField != null && this.amountField.isFocused()) {
+            if (keyCode == 1) {
+                this.amountField.setFocused(false);
+                return;
+            }
+            this.amountField.textboxKeyTyped(typedChar, keyCode);
+            return;
+        }
         if (this.searchField != null && this.searchField.isFocused()) {
             if (keyCode == 1) {
                 this.searchField.setFocused(false);

@@ -138,19 +138,19 @@ public class GuiTeamTasks extends GuiScreen {
 
             this.buttonList.add(makeCycleButton(ID_MEMBER_CYCLE, panelY + 16, "Кому: " + this.members.get(this.memberIndex), 0xFF5B8FFB));
             this.buttonList.add(makeCycleButton(ID_ACTION_CYCLE, panelY + 34, "Действие: " + (actionType == 0 ? "ДОБЫТЬ" : "СКРАФТИТЬ"), 0xFF7CC24A));
-            this.buttonList.add(new GuiButton(ID_SCROLL_UP, panelX() + panelW() - 26, panelY + 52, 22, 7, "^"));
-            this.buttonList.add(new GuiButton(ID_SCROLL_DOWN, panelX() + panelW() - 26, panelY + 59, 22, 7, "v"));
-            this.buttonList.add(new GuiButton(ID_AMOUNT_MINUS, panelX() + panelW() - 64, panelY + panelH - 46, 14, 14, "-"));
-            this.buttonList.add(new GuiButton(ID_AMOUNT_PLUS, panelX() + panelW() - 48, panelY + panelH - 46, 14, 14, "+"));
+            this.buttonList.add(new ThemeButton(ID_SCROLL_UP, panelX() + panelW() - 26, panelY + 52, 22, 7, "^"));
+            this.buttonList.add(new ThemeButton(ID_SCROLL_DOWN, panelX() + panelW() - 26, panelY + 59, 22, 7, "v"));
+            this.buttonList.add(new ThemeButton(ID_AMOUNT_MINUS, panelX() + panelW() - 64, panelY + panelH - 46, 14, 14, "-"));
+            this.buttonList.add(new ThemeButton(ID_AMOUNT_PLUS, panelX() + panelW() - 48, panelY + panelH - 46, 14, 14, "+"));
             for (int i = 0; i < CHIPS.length; i++) {
-                this.buttonList.add(new GuiButton(ID_CHIP_BASE + i,
+                this.buttonList.add(new ThemeButton(ID_CHIP_BASE + i,
                         panelX() + panelW() - 230 + i * 30, panelY + panelH - 46, 26, 14, String.valueOf(CHIPS[i])));
             }
             PanelButton add = new PanelButton(ID_ADD, panelX() + 4, panelY + panelH - 24, panelW() - 8, 18,
                     "ДОБАВИТЬ ЗАДАЧУ", 0xFFE8B33C);
             this.buttonList.add(add);
         }
-        this.buttonList.add(new GuiButton(ID_BACK, this.width - 70, this.height - 22, 60, 16, "Назад"));
+        this.buttonList.add(new ThemeButton(ID_BACK, this.width - 70, this.height - 22, 60, 16, "Назад"));
         refilter();
     }
 

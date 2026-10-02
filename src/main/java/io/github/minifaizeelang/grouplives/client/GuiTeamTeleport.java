@@ -34,7 +34,7 @@ public class GuiTeamTeleport extends GuiScreen {
     public void initGui() {
         this.buttonList.clear();
         this.mates.clear();
-        this.buttonList.add(new GuiButton(ID_BACK, this.width / 2 - 60, this.height - 24, 120, 16, "Назад"));
+        this.buttonList.add(new ThemeButton(ID_BACK, this.width / 2 - 60, this.height - 24, 120, 16, "Назад"));
 
         if (this.mc.player == null || this.mc.world == null || this.mc.getConnection() == null) {
             return;

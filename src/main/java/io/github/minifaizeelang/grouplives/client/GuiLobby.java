@@ -130,13 +130,14 @@ public class GuiLobby extends GuiScreen {
         this.activeSlider = 0;
 
         if (createMode) {
-            this.nameField = new GuiTextField(0, this.fontRenderer, 10, this.height - 46, 120, 18);
+            int formY = this.height - 96;
+            this.nameField = new GuiTextField(0, this.fontRenderer, 24, formY + 26, 110, 14);
             this.nameField.setMaxStringLength(16);
             this.nameField.setFocused(true);
-            this.buttonList.add(new GuiButton(ID_COLOR_CYCLE, 134, this.height - 46, 110, 18, "Цвет: " + COLORS[colorIndex][1]));
-            this.buttonList.add(new GuiButton(ID_CREATE_CONFIRM, 248, this.height - 46, 60, 18, "Создать"));
-            this.buttonList.add(new GuiButton(ID_CREATE_CANCEL, 10, this.height - 24, 200, 16, "Отмена"));
-            this.buttonList.add(new GuiButton(ID_BACK, this.width - 70, this.height - 24, 60, 16, "Назад"));
+            this.buttonList.add(new ThemeButton(ID_COLOR_CYCLE, 146, formY + 25, 104, 16, "Цвет: " + COLORS[colorIndex][1]));
+            this.buttonList.add(new ThemeButton(ID_CREATE_CONFIRM, 254, formY + 25, 60, 16, "Создать"));
+            this.buttonList.add(new ThemeButton(ID_CREATE_CANCEL, 24, formY + 46, 90, 14, "Отмена"));
+            this.buttonList.add(new ThemeButton(ID_BACK, this.width - 70, this.height - 22, 60, 16, "Назад"));
             return;
         }
 
@@ -169,7 +170,7 @@ public class GuiLobby extends GuiScreen {
             int count = Math.min(3, waiting.size());
             int w = count > 0 ? Math.min(120, (leftW() - 8) / count - 4) : 0;
             for (int j = 0; j < count; j++) {
-                GuiButton b = new GuiButton(WAITING_BASE + j, wx, waitingY() + 12, w, 12, waiting.get(j));
+                ThemeButton b = new ThemeButton(WAITING_BASE + j, wx, waitingY() + 12, w, 12, waiting.get(j));
                 waitingByButton.put(b.id, waiting.get(j));
                 this.buttonList.add(b);
                 wx += w + 4;
@@ -190,8 +191,8 @@ public class GuiLobby extends GuiScreen {
             this.buttonList.add(start);
         }
 
-        this.buttonList.add(new GuiButton(ID_CREATE, 10, this.height - 24, 150, 16, "Создать команду"));
-        this.buttonList.add(new GuiButton(ID_BACK, this.width - 70, this.height - 22, 60, 16, "Назад"));
+        this.buttonList.add(new ThemeButton(ID_CREATE, 10, this.height - 24, 150, 16, "Создать команду"));
+        this.buttonList.add(new ThemeButton(ID_BACK, this.width - 70, this.height - 22, 60, 16, "Назад"));
     }
 
     private boolean isMyTeam(ScorePlayerTeam team) {
@@ -299,14 +300,19 @@ public class GuiLobby extends GuiScreen {
                     leftW() - 20), leftX() + 10, by + 16, line.isEmpty() ? UiTheme.TEXT_FADED : UiTheme.TEXT_DIM);
         }
 
-        // Waiting room
-        UiTheme.panel(leftX(), waitingY(), leftW(), 26, 0xFF8A7F96);
-        this.fontRenderer.drawStringWithShadow("ОЖИДАЮТ КОМАНДЫ", leftX() + 10, waitingY() + 3, UiTheme.TEXT);
-        if (waiting.isEmpty()) {
-            this.fontRenderer.drawStringWithShadow("все игроки распределены", leftX() + 10, waitingY() + 14, UiTheme.TEXT_FADED);
-        } else if (!isHost()) {
-            this.fontRenderer.drawStringWithShadow(truncate(String.join(", ", waiting), leftW() - 20),
-                    leftX() + 10, waitingY() + 14, UiTheme.TEXT_DIM);
+        if (createMode) {
+            UiTheme.panel(10, this.height - 96, this.width - 20, 72, UiTheme.YELLOW);
+            this.fontRenderer.drawStringWithShadow("Название команды:", 24, this.height - 86, UiTheme.TEXT_DIM);
+        } else {
+            // Waiting room
+            UiTheme.panel(leftX(), waitingY(), leftW(), 26, 0xFF8A7F96);
+            this.fontRenderer.drawStringWithShadow("ОЖИДАЮТ КОМАНДЫ", leftX() + 10, waitingY() + 3, UiTheme.TEXT);
+            if (waiting.isEmpty()) {
+                this.fontRenderer.drawStringWithShadow("все игроки распределены", leftX() + 10, waitingY() + 14, UiTheme.TEXT_FADED);
+            } else if (!isHost()) {
+                this.fontRenderer.drawStringWithShadow(truncate(String.join(", ", waiting), leftW() - 20),
+                        leftX() + 10, waitingY() + 14, UiTheme.TEXT_DIM);
+            }
         }
 
         // Right column
@@ -334,7 +340,6 @@ public class GuiLobby extends GuiScreen {
 
         if (createMode && this.nameField != null) {
             this.nameField.drawTextBox();
-            this.fontRenderer.drawStringWithShadow("Название команды:", 10, this.height - 56, 0xFF9A8FA8);
         }
     }
 

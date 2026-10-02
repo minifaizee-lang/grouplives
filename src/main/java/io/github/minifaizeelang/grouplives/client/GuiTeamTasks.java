@@ -131,10 +131,12 @@ public class GuiTeamTasks extends GuiScreen {
         if (hasTeam()) {
             this.searchField = new GuiTextField(0, this.fontRenderer, panelX() + 4, panelY + 52, panelW() - 34, 14);
             this.searchField.setMaxStringLength(32);
+            this.searchField.setEnableBackgroundDrawing(false);
             this.amountField = new GuiTextField(1, this.fontRenderer, panelX() + 4, panelY + panelH - 46, 40, 14);
             this.amountField.setMaxStringLength(5);
             this.amountField.setText(String.valueOf(1));
             this.amountField.setValidator(s -> s.isEmpty() || s.matches("\\d{1,5}"));
+            this.amountField.setEnableBackgroundDrawing(false);
 
             this.buttonList.add(makeCycleButton(ID_MEMBER_CYCLE, panelY + 16, "Кому: " + this.members.get(this.memberIndex), 0xFF5B8FFB));
             this.buttonList.add(makeCycleButton(ID_ACTION_CYCLE, panelY + 34, "Действие: " + (actionType == 0 ? "ДОБЫТЬ" : "СКРАФТИТЬ"), 0xFF7CC24A));
@@ -254,11 +256,10 @@ public class GuiTeamTasks extends GuiScreen {
     @Override
     public void drawScreen(int mouseX, int mouseY, float partialTicks) {
         drawGradientRect(0, 0, this.width, this.height, 0xFF231826, 0xFF05040A);
+        UiTheme.scanlines(0, 0, this.width, this.height);
         String title = "ЗАДАЧИ КОМАНДЫ";
         int cx = this.width / 2;
-        drawCenteredString(this.fontRenderer, title, cx - 1, 8, 0xFFFF4D4D);
-        drawCenteredString(this.fontRenderer, title, cx + 1, 8, 0xFF4DFFFF);
-        drawCenteredString(this.fontRenderer, title, cx, 8, 0xFFF5F2F7);
+        drawCenteredString(this.fontRenderer, title, cx, 8, UiTheme.YELLOW);
 
         if (!hasTeam()) {
             drawCenteredString(this.fontRenderer, "Вы не состоите в команде - выберите её в лобби (L).",
@@ -286,9 +287,9 @@ public class GuiTeamTasks extends GuiScreen {
         int top = panelY;
         int bottom = this.height - 30;
         UiTheme.panel(x, top, w, bottom - top, UiTheme.YELLOW);
+        UiTheme.trefoil(x + w - 34, bottom - 40, 0xFF2E2508);
 
         this.fontRenderer.drawStringWithShadow("ДОСКА ЗАДАЧ", x + 12, top + 5, UiTheme.TEXT);
-        this.fontRenderer.drawStringWithShadow("клик - отметить | X - удалить своё", x + 12, top + 15, UiTheme.TEXT_FADED);
 
         boardRows.clear();
         Map<String, List<ClientState.TaskEntry>> byPlayer =
@@ -373,6 +374,10 @@ public class GuiTeamTasks extends GuiScreen {
 
         this.fontRenderer.drawStringWithShadow("НОВАЯ ЗАДАЧА", px + 12, py + 5, UiTheme.YELLOW);
 
+        // Themed backdrops for the text fields (drawn beneath their text)
+        UiTheme.field(px + 4, panelY + 52, panelW() - 34, 14);
+        UiTheme.field(px + 4, panelY + panelH - 46, 40, 14);
+
         // Item grid
         int gx = gridX();
         int gy = gridY;
@@ -409,9 +414,9 @@ public class GuiTeamTasks extends GuiScreen {
         }
         this.fontRenderer.drawStringWithShadow(
                 selectedName.isEmpty() ? "выберите предмет из сетки" : truncate(selectedName, pw - 24),
-                px + 12, py + ph - 60, selectedName.isEmpty() ? 0xFF6E6480 : 0xFFF5F2F7);
+                px + 12, py + ph - 60, selectedName.isEmpty() ? UiTheme.TEXT_FADED : UiTheme.TEXT);
 
-        this.fontRenderer.drawStringWithShadow("Кол-во:", px + panelW() - 250, py + ph - 42, 0xFF9A8FA8);
+        this.fontRenderer.drawStringWithShadow("Кол-во:", px + 52, py + ph - 42, UiTheme.TEXT_DIM);
     }
 
     private String truncate(String text, int maxWidth) {

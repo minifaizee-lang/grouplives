@@ -73,7 +73,6 @@ public class GuiTeamTeleport extends GuiScreen {
             this.mates.add(member);
             PanelButton row = new PanelButton(ROW_BASE + this.mates.size() - 1,
                     this.width / 2 - 140, y, 280, 28, member, colorOf(myTeam));
-            row.description = "нажмите - запрос телепорта (/tpa)";
             this.buttonList.add(row);
             y += 32;
         }
@@ -82,6 +81,7 @@ public class GuiTeamTeleport extends GuiScreen {
     @Override
     public void drawScreen(int mouseX, int mouseY, float partialTicks) {
         drawGradientRect(0, 0, this.width, this.height, 0xFF231826, 0xFF05040A);
+        UiTheme.scanlines(0, 0, this.width, this.height);
 
         int px = this.width / 2 - 150;
         int pw = 300;
@@ -91,9 +91,7 @@ public class GuiTeamTeleport extends GuiScreen {
 
         String title = "КОМАНДА";
         int cx = this.width / 2;
-        drawCenteredString(this.fontRenderer, title, cx - 1, 40, 0xFFFF4D4D);
-        drawCenteredString(this.fontRenderer, title, cx + 1, 40, 0xFF4DFFFF);
-        drawCenteredString(this.fontRenderer, title, cx, 40, UiTheme.TEXT);
+        drawCenteredString(this.fontRenderer, title, cx, 40, UiTheme.YELLOW);
         drawCenteredString(this.fontRenderer, "телепорт к сокомандникам", cx, 52, UiTheme.TEXT_DIM);
 
         if (mates.isEmpty()) {

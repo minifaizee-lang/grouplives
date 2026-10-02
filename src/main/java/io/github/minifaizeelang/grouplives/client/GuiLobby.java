@@ -186,8 +186,8 @@ public class GuiLobby extends GuiScreen {
                     "РАЗМЕР", 0xFFE8B33C);
             this.sizePanel.value = borderSize + " бл.";
             this.buttonList.add(this.sizePanel);
-            PanelButton start = new PanelButton(ID_START_PANEL, px + 4, panelY() + 80, pw - 8, 20,
-                    "СТАРТ ИВЕНТА", 0xFFE8B33C);
+            PanelButton start = new PanelButton(ID_START_PANEL, px + 4, panelY() + 100, pw - 8, 20,
+                    "СТАРТ ИВЕНТА", UiTheme.YELLOW);
             this.buttonList.add(start);
         }
 
@@ -259,6 +259,7 @@ public class GuiLobby extends GuiScreen {
     @Override
     public void drawScreen(int mouseX, int mouseY, float partialTicks) {
         drawGradientRect(0, 0, this.width, this.height, 0xFF231826, 0xFF05040A);
+        UiTheme.scanlines(0, 0, this.width, this.height);
 
         // Banner
         UiTheme.panelHazard(8, 6, this.width - 16, 34, UiTheme.YELLOW);
@@ -300,6 +301,19 @@ public class GuiLobby extends GuiScreen {
                     leftW() - 20), leftX() + 10, by + 16, line.isEmpty() ? UiTheme.TEXT_FADED : UiTheme.TEXT_DIM);
         }
 
+        // Summary fills the space between the team cards and the waiting room
+        int summaryTop = cardsY() + visibleTeams.size() * (cardH() + 5) + 4;
+        int summaryBottom = waitingY() - 6;
+        if (summaryBottom - summaryTop >= 50 && !createMode) {
+            UiTheme.panel(leftX(), summaryTop, leftW(), summaryBottom - summaryTop, UiTheme.YELLOW);
+            this.fontRenderer.drawStringWithShadow("СВОДКА", leftX() + 12, summaryTop + 5, UiTheme.YELLOW);
+            this.fontRenderer.drawStringWithShadow("Игроков онлайн: " + totalOnline, leftX() + 12, summaryTop + 18, UiTheme.TEXT_DIM);
+            this.fontRenderer.drawStringWithShadow("В командах: " + (totalOnline - waiting.size()), leftX() + 12, summaryTop + 28, UiTheme.TEXT_DIM);
+            this.fontRenderer.drawStringWithShadow("Команд: " + visibleTeams.size(), leftX() + 12, summaryTop + 38, UiTheme.TEXT_DIM);
+            this.fontRenderer.drawStringWithShadow("Граница: " + (ClientState.borderEnabled ? ClientState.borderSize + " бл." : "выкл."), leftX() + 12, summaryTop + 48, UiTheme.TEXT_DIM);
+            UiTheme.trefoil(leftX() + leftW() - 36, summaryBottom - 42, 0xFF2E2508);
+        }
+
         if (createMode) {
             UiTheme.panel(10, this.height - 96, this.width - 20, 72, UiTheme.YELLOW);
             this.fontRenderer.drawStringWithShadow("Название команды:", 24, this.height - 86, UiTheme.TEXT_DIM);
@@ -317,19 +331,21 @@ public class GuiLobby extends GuiScreen {
 
         // Right column
         if (isHost()) {
-            UiTheme.panel(rightX(), panelY(), rightW(), 118, UiTheme.YELLOW);
+            UiTheme.panel(rightX(), panelY(), rightW(), 126, UiTheme.YELLOW);
             this.fontRenderer.drawStringWithShadow("НАСТРОЙКИ МИРА", rightX() + 10, panelY() + 3, UiTheme.YELLOW);
             this.fontRenderer.drawStringWithShadow("ГРАНИЦА МИРА", rightX() + 10, panelY() + 16, UiTheme.TEXT_DIM);
             drawSlider(1);
-            this.fontRenderer.drawStringWithShadow("ДИСТАНЦИЯ", rightX() + 10, panelY() + 62, UiTheme.TEXT_DIM);
+            // ДИСТАНЦИЯ row - same style as the РАЗМЕР row
+            int rowY = panelY() + 62;
+            Gui.drawRect(rightX() + 4, rowY, rightX() + rightW() - 4, rowY + 16, 0xFF12101A);
+            Gui.drawRect(rightX() + 4, rowY, rightX() + 5, rowY + 16, UiTheme.YELLOW);
+            this.fontRenderer.drawStringWithShadow("ДИСТАНЦИЯ", rightX() + 11, rowY + 4, UiTheme.YELLOW);
             String spacingText = teamSpacing + " бл.";
             this.fontRenderer.drawStringWithShadow(spacingText,
-                    rightX() + rightW() - 10 - this.fontRenderer.getStringWidth(spacingText), panelY() + 62, UiTheme.TEXT);
+                    rightX() + rightW() - 12 - this.fontRenderer.getStringWidth(spacingText), rowY + 4, UiTheme.TEXT);
             drawSlider(2);
-            this.fontRenderer.drawStringWithShadow("СТАРТ применит границу и разведёт команды",
-                    rightX() + 10, panelY() + 105, UiTheme.TEXT_FADED);
         } else {
-            UiTheme.panel(rightX(), panelY(), rightW(), 118, UiTheme.BLUE);
+            UiTheme.panel(rightX(), panelY(), rightW(), 126, UiTheme.BLUE);
             this.fontRenderer.drawStringWithShadow("НАСТРОЙКИ МИРА", rightX() + 10, panelY() + 3, UiTheme.BLUE);
             this.fontRenderer.drawStringWithShadow("Доступно только хосту мира.", rightX() + 10, panelY() + 17, UiTheme.TEXT_DIM);
             this.fontRenderer.drawStringWithShadow("Выберите команду слева и ждите старта.",
@@ -372,7 +388,7 @@ public class GuiLobby extends GuiScreen {
     }
 
     private int sliderY(int which) {
-        return which == 1 ? panelY() + 50 : panelY() + 74;
+        return which == 1 ? panelY() + 50 : panelY() + 82;
     }
 
     private boolean inSlider(int which, int mouseX, int mouseY) {

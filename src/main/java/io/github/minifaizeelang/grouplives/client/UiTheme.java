@@ -47,11 +47,29 @@ public final class UiTheme {
 
     /** Small pixel radiation trefoil (yellow blades, dark core). */
     public static void trefoil(int x, int y) {
-        Gui.drawRect(x + 3, y, x + 5, y + 2, YELLOW);
-        Gui.drawRect(x, y + 4, x + 3, y + 6, YELLOW);
-        Gui.drawRect(x + 4, y + 4, x + 7, y + 6, YELLOW);
-        Gui.drawRect(x + 2, y + 2, x + 5, y + 5, YELLOW);
+        trefoil(x, y, YELLOW);
+    }
+
+    /** Radiation trefoil in an arbitrary color (used for dim watermarks). */
+    public static void trefoil(int x, int y, int color) {
+        Gui.drawRect(x + 3, y, x + 5, y + 2, color);
+        Gui.drawRect(x, y + 4, x + 3, y + 6, color);
+        Gui.drawRect(x + 4, y + 4, x + 7, y + 6, color);
+        Gui.drawRect(x + 2, y + 2, x + 5, y + 5, color);
         Gui.drawRect(x + 3, y + 3, x + 4, y + 4, 0xFF0A0810);
+    }
+
+    /** Subtle CRT scanlines over a region (Fallout terminal feel). */
+    public static void scanlines(int x, int y, int w, int h) {
+        for (int j = y; j < y + h; j += 3) {
+            Gui.drawRect(x, j, x + w, j + 1, 0x06FFFFFF);
+        }
+    }
+
+    /** Dark themed backdrop for text fields (draw before drawTextBox). */
+    public static void field(int x, int y, int w, int h) {
+        Gui.drawRect(x - 1, y - 1, x + w + 1, y + h + 1, PANEL_EDGE);
+        Gui.drawRect(x, y, x + w, y + h, 0xFF0A0810);
     }
 
     /** Yellow L-shaped corner brackets over the panel corners. */

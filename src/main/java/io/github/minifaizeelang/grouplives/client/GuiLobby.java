@@ -332,13 +332,13 @@ public class GuiLobby extends GuiScreen {
                 } catch (IllegalArgumentException e) {
                     format = TextFormatting.WHITE;
                 }
-                TextComponentString preview = new TextComponentString(
-                        String.format(ModConfig.groupPrefixFormat, draft) + draft);
-                preview.getStyle().setColor(format);
+                String nick = this.mc.player != null ? this.mc.player.getName() : "";
+                String coloredTag = format.toString()
+                        + String.format(ModConfig.groupPrefixFormat, draft)
+                        + TextFormatting.RESET;
                 this.fontRenderer.drawStringWithShadow("Превью: ", leftX() + 12, createPanelY + 64, UiTheme.TEXT_DIM);
-                this.fontRenderer.drawStringWithShadow(preview.getFormattedText(),
-                        leftX() + 12 + this.fontRenderer.getStringWidth("Превью: "), createPanelY + 64,
-                        colorOfFriendly(COLORS[colorIndex][0]));
+                this.fontRenderer.drawStringWithShadow(coloredTag + nick,
+                        leftX() + 12 + this.fontRenderer.getStringWidth("Превью: "), createPanelY + 64, UiTheme.TEXT);
             }
         }
 

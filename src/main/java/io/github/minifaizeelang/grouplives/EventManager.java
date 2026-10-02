@@ -122,6 +122,15 @@ public final class EventManager {
         }
     }
 
+    /**
+     * Called once at server start: wipes any leftover vanilla world border so
+     * a border disabled in the mod can never be shadowed by an invisible
+     * vanilla one from older versions or manual /worldborder use.
+     */
+    public static void onServerStart(MinecraftServer server) {
+        clearVanillaBorder(server);
+    }
+
     public static void setBorder(MinecraftServer server, int size, boolean enabled) {
         EventStateData data = data(server);
         data.borderSize = size;

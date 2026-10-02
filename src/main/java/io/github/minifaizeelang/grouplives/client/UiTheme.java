@@ -9,14 +9,15 @@ import net.minecraft.client.gui.Gui;
  */
 public final class UiTheme {
 
-    public static final int YELLOW = 0xFFE8B33C;
-    public static final int YELLOW_BRIGHT = 0xFFF7D27C;
-    public static final int YELLOW_DIM = 0xFF8A6A1E;
-    public static final int PANEL_BG = 0xF20E0B12;
-    public static final int PANEL_EDGE = 0xFF453A1E;
-    public static final int TEXT = 0xFFF5F2F7;
-    public static final int TEXT_DIM = 0xFF9A8FA8;
-    public static final int TEXT_FADED = 0xFF6E6480;
+    /** Fallout-terminal green palette. (Constant names reference the old amber theme.) */
+    public static final int YELLOW = 0xFF9CC97A;
+    public static final int YELLOW_BRIGHT = 0xFFC9E5A8;
+    public static final int YELLOW_DIM = 0xFF5F7A46;
+    public static final int PANEL_BG = 0xF20C110C;
+    public static final int PANEL_EDGE = 0xFF3E523E;
+    public static final int TEXT = 0xFFE2EFDC;
+    public static final int TEXT_DIM = 0xFF8FA88F;
+    public static final int TEXT_FADED = 0xFF5E725E;
     public static final int RED = 0xFFD0483C;
     public static final int GREEN = 0xFF7CC24A;
     public static final int BLUE = 0xFF5B8FFB;

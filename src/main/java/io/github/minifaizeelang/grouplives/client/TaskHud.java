@@ -201,21 +201,6 @@ public final class TaskHud {
             }
             mc.fontRenderer.drawStringWithShadow(entry.getKey(), panelX + 22, ry + 2, 0xFFF5F2F7);
 
-            // Teammate HP bar (client-synced data watcher)
-            EntityPlayer entity = findPlayer(mc, entry.getKey());
-            if (entity != null) {
-                float max = entity.getMaxHealth();
-                float frac = max > 0 ? Math.min(1.0F, Math.max(0.0F, entity.getHealth() / max)) : 0.0F;
-                int bx = panelX + 108;
-                Gui.drawRect(bx, ry + 5, bx + 55, ry + 9, 0xFF3B3344);
-                int fill = (int) (55 * frac);
-                if (fill > 0) {
-                    Gui.drawRect(bx, ry + 5, bx + fill, ry + 9, hpColor(frac));
-                }
-                String pct = (int) (frac * 100) + "%";
-                mc.fontRenderer.drawStringWithShadow(pct, panelX + 168, ry + 2, 0xFF9A8FA8);
-            }
-
             String counter = done + "/" + tasks.size();
             mc.fontRenderer.drawStringWithShadow(counter,
                     panelX + PANEL_W - 8 - mc.fontRenderer.getStringWidth(counter), ry + 2, 0xFFE8B33C);

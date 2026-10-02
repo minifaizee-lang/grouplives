@@ -207,57 +207,97 @@ public final class GroupManager {
         return line;
     }
 
-    /** Pushes one player's custom tab entry, built per receiver, to everyone online. */
+    /** Tab entries are visible only to teammates, teamless players and the player themselves. */
+    private static boolean tabVisibleTo(MinecraftServer server, EntityPlayerMP receiver, EntityPlayerMP target) {
+        if (receiver == target) {
+            return true;
+        }
+        Scoreboard sb = scoreboard(server);
+        ScorePlayerTeam receiverTeam = sb.getPlayersTeam(receiver.getName());
+        ScorePlayerTeam targetTeam = sb.getPlayersTeam(target.getName());
+        return targetTeam == null || (receiverTeam != null && receiverTeam.isSameTeam(targetTeam));
+    }
+
+    /**
+     * Pushes one player's tab entry per receiver: teammates get the tagged
+     * nickname, everyone else gets the entry REMOVED from their tab list
+     * entirely - nicknames of other teams are not shown at all.
+     */
     public static void updateTabName(MinecraftServer server, EntityPlayerMP target) {
         for (EntityPlayerMP receiver : server.getPlayerList().getPlayers()) {
-            SPacketPlayerListItem packet = buildDisplayPacket(server, receiver, target);
+            SPacketPlayerListItem packet = buildTabPacket(server, receiver, target);
             if (packet != null) {
                 receiver.connection.sendPacket(packet);
             }
         }
     }
 
-    /** Pushes every online player's custom tab entry (built per receiver) to one player (used right after login). */
+    /** Pushes the whole (per-receiver filtered) tab list to one player (used right after login). */
     public static void sendAllTabNamesTo(MinecraftServer server, EntityPlayerMP recipient) {
-        SPacketPlayerListItem packet = new SPacketPlayerListItem();
         if (TAB_PACKET_ACTION == null || TAB_PACKET_ENTRIES == null) {
             warnOnce();
             return;
         }
         try {
-            TAB_PACKET_ACTION.set(packet, SPacketPlayerListItem.Action.UPDATE_DISPLAY_NAME);
+            SPacketPlayerListItem show = new SPacketPlayerListItem();
+            TAB_PACKET_ACTION.set(show, SPacketPlayerListItem.Action.UPDATE_DISPLAY_NAME);
             @SuppressWarnings("unchecked")
-            List<SPacketPlayerListItem.AddPlayerData> entries =
-                    (List<SPacketPlayerListItem.AddPlayerData>) TAB_PACKET_ENTRIES.get(packet);
+            List<SPacketPlayerListItem.AddPlayerData> showEntries =
+                    (List<SPacketPlayerListItem.AddPlayerData>) TAB_PACKET_ENTRIES.get(show);
+            SPacketPlayerListItem hide = new SPacketPlayerListItem();
+            TAB_PACKET_ACTION.set(hide, SPacketPlayerListItem.Action.REMOVE_PLAYER);
+            @SuppressWarnings("unchecked")
+            List<SPacketPlayerListItem.AddPlayerData> hideEntries =
+                    (List<SPacketPlayerListItem.AddPlayerData>) TAB_PACKET_ENTRIES.get(hide);
+
             for (EntityPlayerMP online : server.getPlayerList().getPlayers()) {
-                entries.add(packet.new AddPlayerData(
-                        online.getGameProfile(),
-                        online.ping,
-                        online.interactionManager.getGameType(),
-                        buildTabName(server, recipient, online)));
+                if (tabVisibleTo(server, recipient, online)) {
+                    showEntries.add(show.new AddPlayerData(
+                            online.getGameProfile(),
+                            online.ping,
+                            online.interactionManager.getGameType(),
+                            buildTabName(server, recipient, online)));
+                } else {
+                    hideEntries.add(hide.new AddPlayerData(online.getGameProfile(), 0, null, null));
+                }
             }
-            recipient.connection.sendPacket(packet);
+            recipient.connection.sendPacket(show);
+            if (!hideEntries.isEmpty()) {
+                recipient.connection.sendPacket(hide);
+            }
         } catch (Throwable t) {
             GroupLivesMod.log().warn("Failed to send tab list display names", t);
         }
     }
 
-    private static SPacketPlayerListItem buildDisplayPacket(MinecraftServer server, EntityPlayerMP viewer, EntityPlayerMP target) {
+    /** Re-sends every online player's filtered tab list (after team changes). */
+    public static void resyncAllTabNames(MinecraftServer server) {
+        for (EntityPlayerMP player : server.getPlayerList().getPlayers()) {
+            sendAllTabNamesTo(server, player);
+        }
+    }
+
+    private static SPacketPlayerListItem buildTabPacket(MinecraftServer server, EntityPlayerMP receiver, EntityPlayerMP target) {
         if (TAB_PACKET_ACTION == null || TAB_PACKET_ENTRIES == null) {
             warnOnce();
             return null;
         }
         try {
             SPacketPlayerListItem packet = new SPacketPlayerListItem();
-            TAB_PACKET_ACTION.set(packet, SPacketPlayerListItem.Action.UPDATE_DISPLAY_NAME);
             @SuppressWarnings("unchecked")
             List<SPacketPlayerListItem.AddPlayerData> entries =
                     (List<SPacketPlayerListItem.AddPlayerData>) TAB_PACKET_ENTRIES.get(packet);
-            entries.add(packet.new AddPlayerData(
-                    target.getGameProfile(),
-                    target.ping,
-                    target.interactionManager.getGameType(),
-                    buildTabName(server, viewer, target)));
+            if (tabVisibleTo(server, receiver, target)) {
+                TAB_PACKET_ACTION.set(packet, SPacketPlayerListItem.Action.UPDATE_DISPLAY_NAME);
+                entries.add(packet.new AddPlayerData(
+                        target.getGameProfile(),
+                        target.ping,
+                        target.interactionManager.getGameType(),
+                        buildTabName(server, receiver, target)));
+            } else {
+                TAB_PACKET_ACTION.set(packet, SPacketPlayerListItem.Action.REMOVE_PLAYER);
+                entries.add(packet.new AddPlayerData(target.getGameProfile(), 0, null, null));
+            }
             return packet;
         } catch (Throwable t) {
             GroupLivesMod.log().warn("Failed to build tab list display name packet", t);

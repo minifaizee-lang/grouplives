@@ -171,14 +171,9 @@ public final class TaskHud {
         }
         panelH = Math.min(16 + contentH + 8, maxH);
 
-        Gui.drawRect(panelX, panelY, panelX + PANEL_W, panelY + panelH, 0xD017121C);
-        Gui.drawRect(panelX, panelY, panelX + PANEL_W, panelY + 1, 0xFF3B3344);
-        Gui.drawRect(panelX, panelY + panelH - 1, panelX + PANEL_W, panelY + panelH, 0xFF3B3344);
-        Gui.drawRect(panelX, panelY, panelX + 1, panelY + panelH, 0xFF3B3344);
-        Gui.drawRect(panelX + PANEL_W - 1, panelY, panelX + PANEL_W, panelY + panelH, 0xFF3B3344);
-        Gui.drawRect(panelX + 3, panelY + 3, panelX + 6, panelY + panelH - 3, 0xFFE8B33C);
-
-        mc.fontRenderer.drawStringWithShadow("ВАША КОМАНДА", panelX + 12, panelY + 4, 0xFFF5F2F7);
+        UiTheme.panelHazard(panelX, panelY, PANEL_W, panelH, UiTheme.YELLOW);
+        UiTheme.trefoil(panelX + 11, panelY + 5);
+        mc.fontRenderer.drawStringWithShadow("ВАША КОМАНДА", panelX + 22, panelY + 5, UiTheme.TEXT);
 
         int ry = panelY + 16;
         int bottom = panelY + panelH - 4;

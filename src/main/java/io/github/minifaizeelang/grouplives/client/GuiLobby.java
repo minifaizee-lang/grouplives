@@ -260,19 +260,19 @@ public class GuiLobby extends GuiScreen {
         drawGradientRect(0, 0, this.width, this.height, 0xFF231826, 0xFF05040A);
 
         // Banner
-        card(8, 6, this.width - 16, 34, 0xFFE8B33C);
-        goldIcon(18, 12, 4);
-        this.fontRenderer.drawStringWithShadow("ПРЕДСТОЯЩЕЕ СОБЫТИЕ", 48, 11, 0xFFE8B33C);
-        this.fontRenderer.drawStringWithShadow("КОМАНДНОЕ ВЫЖИВАНИЕ", 48, 20, 0xFFF5F2F7);
-        this.fontRenderer.drawStringWithShadow("Приватный мир · Выживание · Команды", 48, 30, 0xFF9A8FA8);
+        UiTheme.panelHazard(8, 6, this.width - 16, 34, UiTheme.YELLOW);
+        UiTheme.trefoil(18, 12);
+        this.fontRenderer.drawStringWithShadow("ПРЕДСТОЯЩЕЕ СОБЫТИЕ", 48, 11, UiTheme.YELLOW);
+        this.fontRenderer.drawStringWithShadow("КОМАНДНОЕ ВЫЖИВАНИЕ", 48, 20, UiTheme.TEXT);
+        this.fontRenderer.drawStringWithShadow("Приватный мир · Выживание · Команды", 48, 30, UiTheme.TEXT_DIM);
         int sbx = this.width - 8 - 124;
-        drawRect(sbx, 11, sbx + 114, 33, 0xFF0E0B12);
-        drawRect(sbx, 11, sbx + 1, 33, 0xFF3B3344);
-        drawRect(sbx + 113, 11, sbx + 114, 33, 0xFF3B3344);
+        Gui.drawRect(sbx, 11, sbx + 114, 33, 0xFF0E0B12);
+        Gui.drawRect(sbx, 11, sbx + 1, 33, 0xFF3B3344);
+        Gui.drawRect(sbx + 113, 11, sbx + 114, 33, 0xFF3B3344);
         boolean started = ClientState.eventStarted;
-        drawRect(sbx + 6, 17, sbx + 10, 21, started ? 0xFFD0483C : 0xFFE8B33C);
-        this.fontRenderer.drawStringWithShadow(started ? "ИВЕНТ ИДЁТ" : "ЛОББИ ОТКРЫТ", sbx + 14, 14, 0xFFF5F2F7);
-        this.fontRenderer.drawStringWithShadow(started ? "граница активна" : "ожидание хоста", sbx + 14, 23, 0xFF8A7F96);
+        drawRect(sbx + 6, 17, sbx + 10, 21, started ? UiTheme.RED : UiTheme.YELLOW);
+        this.fontRenderer.drawStringWithShadow(started ? "ИВЕНТ ИДЁТ" : "ЛОББИ ОТКРЫТ", sbx + 14, 14, UiTheme.TEXT);
+        this.fontRenderer.drawStringWithShadow(started ? "граница активна" : "ожидание хоста", sbx + 14, 23, UiTheme.TEXT_DIM);
 
         // Section headers
         this.fontRenderer.drawStringWithShadow("01 / ИГРОКИ", leftX(), 45, 0xFFE8B33C);
@@ -287,54 +287,47 @@ public class GuiLobby extends GuiScreen {
             ScorePlayerTeam team = visibleTeams.get(i);
             int by = cardsY() + i * (cardH() + 5);
             int accent = colorOf(team);
-            card(leftX(), by, leftW(), cardH(), accent);
+            UiTheme.panel(leftX(), by, leftW(), cardH(), accent);
             this.fontRenderer.drawStringWithShadow(team.getName().toUpperCase(), leftX() + 10, by + 3, accent);
             String count = team.getMembershipCollection().size() + " чел.";
-            this.fontRenderer.drawStringWithShadow(count, leftX() + leftW() - 8 - this.fontRenderer.getStringWidth(count), by + 3, 0xFF8A7F96);
+            this.fontRenderer.drawStringWithShadow(count, leftX() + leftW() - 8 - this.fontRenderer.getStringWidth(count), by + 3, UiTheme.TEXT_DIM);
 
             List<String> members = new ArrayList<String>(team.getMembershipCollection());
             members.sort(String::compareTo);
-            boolean myTeam = isMyTeam(team);
-            // Nicknames are team-private: other teams see only "???"
-            for (int m = 0; m < members.size(); m++) {
-                if (!myTeam && !members.get(m).equals(this.mc.player.getName())) {
-                    members.set(m, "???");
-                }
-            }
             String line = String.join(", ", members);
             this.fontRenderer.drawStringWithShadow(truncate(line.isEmpty() ? "Пока пусто - вступите первым!" : line,
-                    leftW() - 20), leftX() + 10, by + 16, line.isEmpty() ? 0xFF6E6480 : 0xFF9A8FA8);
+                    leftW() - 20), leftX() + 10, by + 16, line.isEmpty() ? UiTheme.TEXT_FADED : UiTheme.TEXT_DIM);
         }
 
         // Waiting room
-        card(leftX(), waitingY(), leftW(), 26, 0xFF8A7F96);
-        this.fontRenderer.drawStringWithShadow("ОЖИДАЮТ КОМАНДЫ", leftX() + 10, waitingY() + 3, 0xFFF5F2F7);
+        UiTheme.panel(leftX(), waitingY(), leftW(), 26, 0xFF8A7F96);
+        this.fontRenderer.drawStringWithShadow("ОЖИДАЮТ КОМАНДЫ", leftX() + 10, waitingY() + 3, UiTheme.TEXT);
         if (waiting.isEmpty()) {
-            this.fontRenderer.drawStringWithShadow("все игроки распределены", leftX() + 10, waitingY() + 14, 0xFF6E6480);
+            this.fontRenderer.drawStringWithShadow("все игроки распределены", leftX() + 10, waitingY() + 14, UiTheme.TEXT_FADED);
         } else if (!isHost()) {
             this.fontRenderer.drawStringWithShadow(truncate(String.join(", ", waiting), leftW() - 20),
-                    leftX() + 10, waitingY() + 14, 0xFF9A8FA8);
+                    leftX() + 10, waitingY() + 14, UiTheme.TEXT_DIM);
         }
 
         // Right column
         if (isHost()) {
-            card(rightX(), panelY(), rightW(), 118, 0xFFD0483C);
-            this.fontRenderer.drawStringWithShadow("НАСТРОЙКИ МИРА", rightX() + 10, panelY() + 3, 0xFFE8B33C);
-            this.fontRenderer.drawStringWithShadow("ГРАНИЦА МИРА", rightX() + 10, panelY() + 16, 0xFF9A8FA8);
+            UiTheme.panel(rightX(), panelY(), rightW(), 118, UiTheme.YELLOW);
+            this.fontRenderer.drawStringWithShadow("НАСТРОЙКИ МИРА", rightX() + 10, panelY() + 3, UiTheme.YELLOW);
+            this.fontRenderer.drawStringWithShadow("ГРАНИЦА МИРА", rightX() + 10, panelY() + 16, UiTheme.TEXT_DIM);
             drawSlider(1);
-            this.fontRenderer.drawStringWithShadow("ДИСТАНЦИЯ", rightX() + 10, panelY() + 62, 0xFF9A8FA8);
+            this.fontRenderer.drawStringWithShadow("ДИСТАНЦИЯ", rightX() + 10, panelY() + 62, UiTheme.TEXT_DIM);
             String spacingText = teamSpacing + " бл.";
             this.fontRenderer.drawStringWithShadow(spacingText,
-                    rightX() + rightW() - 10 - this.fontRenderer.getStringWidth(spacingText), panelY() + 62, 0xFFF5F2F7);
+                    rightX() + rightW() - 10 - this.fontRenderer.getStringWidth(spacingText), panelY() + 62, UiTheme.TEXT);
             drawSlider(2);
             this.fontRenderer.drawStringWithShadow("СТАРТ применит границу и разведёт команды",
-                    rightX() + 10, panelY() + 105, 0xFF6E6480);
+                    rightX() + 10, panelY() + 105, UiTheme.TEXT_FADED);
         } else {
-            card(rightX(), panelY(), rightW(), 118, 0xFF5B8FFB);
-            this.fontRenderer.drawStringWithShadow("НАСТРОЙКИ МИРА", rightX() + 10, panelY() + 3, 0xFF5B8FFB);
-            this.fontRenderer.drawStringWithShadow("Доступно только хосту мира.", rightX() + 10, panelY() + 17, 0xFF9A8FA8);
+            UiTheme.panel(rightX(), panelY(), rightW(), 118, UiTheme.BLUE);
+            this.fontRenderer.drawStringWithShadow("НАСТРОЙКИ МИРА", rightX() + 10, panelY() + 3, UiTheme.BLUE);
+            this.fontRenderer.drawStringWithShadow("Доступно только хосту мира.", rightX() + 10, panelY() + 17, UiTheme.TEXT_DIM);
             this.fontRenderer.drawStringWithShadow("Выберите команду слева и ждите старта.",
-                    rightX() + 10, panelY() + 27, 0xFF9A8FA8);
+                    rightX() + 10, panelY() + 27, UiTheme.TEXT_DIM);
         }
 
         super.drawScreen(mouseX, mouseY, partialTicks);

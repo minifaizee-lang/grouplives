@@ -82,7 +82,7 @@ public class CommandGroup extends CommandBase {
                     throw new CommandException("No group named " + args[1] + " exists.");
                 }
                 for (String member : members) {
-                    TasksManager.syncPlayer(server, member);
+                    TasksManager.syncPlayer(server, member); GroupManager.resyncAllTabNames(server);
                 }
                 Msg.send(sender, TextFormatting.YELLOW, "Group deleted: " + args[1]);
                 return;
@@ -100,7 +100,7 @@ public class CommandGroup extends CommandBase {
                 }
                 TasksManager.syncPlayer(server, sender.getName());
                 if (oldTeam != null && !oldTeam.getName().equalsIgnoreCase(args[1])) {
-                    TasksManager.syncMembers(server, new ArrayList<String>(oldTeam.getMembershipCollection()));
+                    TasksManager.syncMembers(server, new ArrayList<String>(oldTeam.getMembershipCollection())); GroupManager.resyncAllTabNames(server);
                 }
                 Msg.send(sender, TextFormatting.GREEN, "Joined group: " + args[1]);
                 return;
@@ -115,7 +115,7 @@ public class CommandGroup extends CommandBase {
                 }
                 TasksManager.syncPlayer(server, sender.getName());
                 if (oldTeam != null) {
-                    TasksManager.syncMembers(server, new ArrayList<String>(oldTeam.getMembershipCollection()));
+                    TasksManager.syncMembers(server, new ArrayList<String>(oldTeam.getMembershipCollection())); GroupManager.resyncAllTabNames(server);
                 }
                 Msg.send(sender, TextFormatting.YELLOW, "You left your group.");
                 return;
@@ -133,7 +133,7 @@ public class CommandGroup extends CommandBase {
                 }
                 TasksManager.syncPlayer(server, args[1]);
                 if (oldTeam != null && !oldTeam.getName().equalsIgnoreCase(args[2])) {
-                    TasksManager.syncMembers(server, new ArrayList<String>(oldTeam.getMembershipCollection()));
+                    TasksManager.syncMembers(server, new ArrayList<String>(oldTeam.getMembershipCollection())); GroupManager.resyncAllTabNames(server);
                 }
                 Msg.send(sender, TextFormatting.GREEN, "Added " + args[1] + " to " + args[2]);
                 return;
@@ -151,7 +151,7 @@ public class CommandGroup extends CommandBase {
                 }
                 TasksManager.syncPlayer(server, args[1]);
                 if (oldTeam != null) {
-                    TasksManager.syncMembers(server, new ArrayList<String>(oldTeam.getMembershipCollection()));
+                    TasksManager.syncMembers(server, new ArrayList<String>(oldTeam.getMembershipCollection())); GroupManager.resyncAllTabNames(server);
                 }
                 Msg.send(sender, TextFormatting.YELLOW, "Removed " + args[1] + " from their group.");
                 return;

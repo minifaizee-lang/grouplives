@@ -285,15 +285,10 @@ public class GuiTeamTasks extends GuiScreen {
         int w = boardW();
         int top = panelY;
         int bottom = this.height - 30;
-        Gui.drawRect(x, top, x + w, bottom, 0xE617121C);
-        Gui.drawRect(x, top, x + w, top + 1, 0xFF3B3344);
-        Gui.drawRect(x, bottom - 1, x + w, bottom, 0xFF3B3344);
-        Gui.drawRect(x, top, x + 1, bottom, 0xFF3B3344);
-        Gui.drawRect(x + w - 1, top, x + w, bottom, 0xFF3B3344);
-        Gui.drawRect(x + 3, top + 3, x + 6, bottom - 3, 0xFF5B8FFB);
+        UiTheme.panel(x, top, w, bottom - top, UiTheme.YELLOW);
 
-        this.fontRenderer.drawStringWithShadow("ДОСКА ЗАДАЧ", x + 12, top + 5, 0xFFF5F2F7);
-        this.fontRenderer.drawStringWithShadow("клик - отметить | X - удалить своё", x + 12, top + 15, 0xFF6E6480);
+        this.fontRenderer.drawStringWithShadow("ДОСКА ЗАДАЧ", x + 12, top + 5, UiTheme.TEXT);
+        this.fontRenderer.drawStringWithShadow("клик - отметить | X - удалить своё", x + 12, top + 15, UiTheme.TEXT_FADED);
 
         boardRows.clear();
         Map<String, List<ClientState.TaskEntry>> byPlayer =
@@ -373,15 +368,10 @@ public class GuiTeamTasks extends GuiScreen {
         int px = panelX();
         int pw = panelW();
         int py = panelY;
-        int ph = panelH;
-        Gui.drawRect(px, py, px + pw, py + ph, 0xE617121C);
-        Gui.drawRect(px, py, px + pw, py + 1, 0xFF3B3344);
-        Gui.drawRect(px, py + ph - 1, px + pw, py + ph, 0xFF3B3344);
-        Gui.drawRect(px, py, px + 1, py + ph, 0xFF3B3344);
-        Gui.drawRect(px + pw - 1, py, px + pw, py + ph, 0xFF3B3344);
-        Gui.drawRect(px + 3, py + 3, px + 6, py + ph - 3, 0xFFE8B33C);
+        int ph = this.height - 30 - py;
+        UiTheme.panel(px, py, pw, ph, UiTheme.YELLOW);
 
-        this.fontRenderer.drawStringWithShadow("НОВАЯ ЗАДАЧА", px + 12, py + 5, 0xFFE8B33C);
+        this.fontRenderer.drawStringWithShadow("НОВАЯ ЗАДАЧА", px + 12, py + 5, UiTheme.YELLOW);
 
         // Item grid
         int gx = gridX();

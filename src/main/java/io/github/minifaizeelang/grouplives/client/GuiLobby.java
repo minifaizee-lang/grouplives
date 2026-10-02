@@ -294,6 +294,13 @@ public class GuiLobby extends GuiScreen {
 
             List<String> members = new ArrayList<String>(team.getMembershipCollection());
             members.sort(String::compareTo);
+            boolean myTeam = isMyTeam(team);
+            // Nicknames are team-private: other teams see only "???"
+            for (int m = 0; m < members.size(); m++) {
+                if (!myTeam && !members.get(m).equals(this.mc.player.getName())) {
+                    members.set(m, "???");
+                }
+            }
             String line = String.join(", ", members);
             this.fontRenderer.drawStringWithShadow(truncate(line.isEmpty() ? "Пока пусто - вступите первым!" : line,
                     leftW() - 20), leftX() + 10, by + 16, line.isEmpty() ? 0xFF6E6480 : 0xFF9A8FA8);

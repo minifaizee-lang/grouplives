@@ -2,8 +2,10 @@ package io.github.minifaizeelang.grouplives;
 
 import io.github.minifaizeelang.grouplives.network.NetworkHandler;
 import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.network.play.server.SPacketChat;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.scoreboard.ScorePlayerTeam;
+import net.minecraft.util.text.ITextComponent;
 import net.minecraft.util.text.TextComponentString;
 import net.minecraft.util.text.TextFormatting;
 import net.minecraftforge.event.ServerChatEvent;
@@ -35,9 +37,9 @@ public final class ModEvents {
     }
 
     /**
-     * Rebuilds player chat as "[Tag] <Nickname> message" with a colored tag -
-     * vanilla 1.12.2 chat does not render team prefixes on its own. Players
-     * without a group keep the vanilla "<Nickname> message" format.
+     * Rebuilds player chat per audience: teammates see "[Tag] <Nickname> msg"
+     * (colored tag), everyone else sees "<???> msg" - nicknames are
+     * team-private. Players without a group keep the plain vanilla format.
      */
     @SubscribeEvent
     public static void onServerChat(ServerChatEvent event) {
@@ -46,16 +48,30 @@ public final class ModEvents {
             return;
         }
         ScorePlayerTeam team = GroupManager.scoreboard(player.mcServer).getPlayersTeam(player.getName());
+
+        TextComponentString teamLine;
+        TextComponentString outsiderLine;
         if (team == null) {
-            return;
+            String plain = "<" + player.getName() + "> " + event.getMessage();
+            teamLine = new TextComponentString(plain);
+            outsiderLine = teamLine;
+        } else {
+            TextFormatting color = team.getColor() == null ? TextFormatting.WHITE : team.getColor();
+            TextComponentString tag = new TextComponentString(String.format(ModConfig.groupPrefixFormat, team.getName()));
+            tag.getStyle().setColor(color);
+            teamLine = new TextComponentString("");
+            teamLine.appendSibling(tag);
+            teamLine.appendSibling(new TextComponentString("<" + player.getName() + "> " + event.getMessage()));
+            outsiderLine = new TextComponentString(TextFormatting.GRAY + "???"
+                    + TextFormatting.RESET + ": " + event.getMessage());
         }
-        TextFormatting color = team.getColor() == null ? TextFormatting.WHITE : team.getColor();
-        TextComponentString tag = new TextComponentString(String.format(ModConfig.groupPrefixFormat, team.getName()));
-        tag.getStyle().setColor(color);
-        TextComponentString line = new TextComponentString("");
-        line.appendSibling(tag);
-        line.appendSibling(new TextComponentString("<" + player.getName() + "> " + event.getMessage()));
-        event.setComponent(line);
+
+        event.setCanceled(true);
+        for (EntityPlayerMP receiver : player.mcServer.getPlayerList().getPlayers()) {
+            ITextComponent line = GroupManager.areTeammates(player.mcServer, receiver.getName(), player.getName())
+                    ? teamLine : outsiderLine;
+            receiver.connection.sendPacket(new SPacketChat(line));
+        }
     }
 
     @SubscribeEvent

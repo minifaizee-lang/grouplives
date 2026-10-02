@@ -8,6 +8,7 @@ import net.minecraft.client.gui.GuiChat;
 import net.minecraft.client.gui.ScaledResolution;
 import net.minecraft.client.network.NetworkPlayerInfo;
 import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.entity.player.EntityPlayer;
 import net.minecraftforge.client.event.GuiScreenEvent;
 import net.minecraftforge.client.event.RenderGameOverlayEvent;
 import net.minecraftforge.common.config.Configuration;
@@ -28,8 +29,8 @@ import java.util.Map;
  * The team task panel. Always visible on the HUD; interactive while the chat
  * is open - own tasks are marked by clicking, and the panel itself can be
  * dragged anywhere (position persists in config/grouplives_client.cfg).
- * Only the assignee marks their own task; the server never sends the board
- * to non-team players.
+ * Shows every teammate's HP. Only the assignee marks their own task; the
+ * server never sends the board to non-team players.
  */
 @Mod.EventBusSubscriber(value = Side.CLIENT, modid = GroupLivesMod.MODID)
 public final class TaskHud {
@@ -56,7 +57,7 @@ public final class TaskHud {
     /** Localized display-name cache for structured task items. */
     private static final Map<String, String> DISPLAY_CACHE = new HashMap<String, String>();
 
-    private static final int PANEL_W = 260;
+    private static final int PANEL_W = 240;
 
     private static int panelX;
     private static int panelY;
@@ -168,7 +169,7 @@ public final class TaskHud {
         for (List<ClientState.TaskEntry> tasks : byPlayer.values()) {
             contentH += 15 + tasks.size() * 10 + 3;
         }
-        panelH = Math.min(24 + contentH + 8, maxH);
+        panelH = Math.min(16 + contentH + 8, maxH);
 
         Gui.drawRect(panelX, panelY, panelX + PANEL_W, panelY + panelH, 0xD017121C);
         Gui.drawRect(panelX, panelY, panelX + PANEL_W, panelY + 1, 0xFF3B3344);
@@ -177,10 +178,9 @@ public final class TaskHud {
         Gui.drawRect(panelX + PANEL_W - 1, panelY, panelX + PANEL_W, panelY + panelH, 0xFF3B3344);
         Gui.drawRect(panelX + 3, panelY + 3, panelX + 6, panelY + panelH - 3, 0xFFE8B33C);
 
-        mc.fontRenderer.drawStringWithShadow("ВАША КОМАНДА", panelX + 12, panelY + 5, 0xFFF5F2F7);
-        mc.fontRenderer.drawStringWithShadow("задача - клик | окно - тащить", panelX + 12, panelY + 14, 0xFF6E6480);
+        mc.fontRenderer.drawStringWithShadow("ВАША КОМАНДА", panelX + 12, panelY + 4, 0xFFF5F2F7);
 
-        int ry = panelY + 24;
+        int ry = panelY + 16;
         int bottom = panelY + panelH - 4;
         outer:
         for (Map.Entry<String, List<ClientState.TaskEntry>> entry : byPlayer.entrySet()) {
@@ -205,6 +205,22 @@ public final class TaskHud {
                 }
             }
             mc.fontRenderer.drawStringWithShadow(entry.getKey(), panelX + 22, ry + 2, 0xFFF5F2F7);
+
+            // Teammate HP bar (client-synced data watcher)
+            EntityPlayer entity = findPlayer(mc, entry.getKey());
+            if (entity != null) {
+                float max = entity.getMaxHealth();
+                float frac = max > 0 ? Math.min(1.0F, Math.max(0.0F, entity.getHealth() / max)) : 0.0F;
+                int bx = panelX + 108;
+                Gui.drawRect(bx, ry + 5, bx + 55, ry + 9, 0xFF3B3344);
+                int fill = (int) (55 * frac);
+                if (fill > 0) {
+                    Gui.drawRect(bx, ry + 5, bx + fill, ry + 9, hpColor(frac));
+                }
+                String pct = (int) (frac * 100) + "%";
+                mc.fontRenderer.drawStringWithShadow(pct, panelX + 168, ry + 2, 0xFF9A8FA8);
+            }
+
             String counter = done + "/" + tasks.size();
             mc.fontRenderer.drawStringWithShadow(counter,
                     panelX + PANEL_W - 8 - mc.fontRenderer.getStringWidth(counter), ry + 2, 0xFFE8B33C);
@@ -235,6 +251,28 @@ public final class TaskHud {
             }
             ry += 3;
         }
+    }
+
+    private static EntityPlayer findPlayer(Minecraft mc, String name) {
+        if (mc.world == null) {
+            return null;
+        }
+        for (EntityPlayer player : mc.world.playerEntities) {
+            if (player.getName().equals(name)) {
+                return player;
+            }
+        }
+        return null;
+    }
+
+    private static int hpColor(float frac) {
+        if (frac > 0.5F) {
+            return 0xFF55FF55;
+        }
+        if (frac > 0.25F) {
+            return 0xFFFFAA00;
+        }
+        return 0xFFFF5555;
     }
 
     private static String truncate(Minecraft mc, String text, int maxWidth) {

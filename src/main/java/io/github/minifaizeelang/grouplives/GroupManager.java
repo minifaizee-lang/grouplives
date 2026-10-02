@@ -4,6 +4,7 @@ import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.network.play.server.SPacketPlayerListItem;
 import net.minecraft.scoreboard.ScorePlayerTeam;
 import net.minecraft.scoreboard.Scoreboard;
+import net.minecraft.scoreboard.Team;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.text.ITextComponent;
 import net.minecraft.util.text.TextComponentString;
@@ -57,12 +58,14 @@ public final class GroupManager {
     /**
      * Order matters: setColor does not broadcast anything on its own, but
      * setPrefix broadcasts the whole team state - so the color has to be set
-     * first to reach clients in the same packet.
+     * first to reach clients in the same packet. Nametags are hidden from
+     * other teams: nicknames are team-private.
      */
     public static void applyStyle(MinecraftServer server, ScorePlayerTeam team, String name, TextFormatting color) {
         TextFormatting actual = color == null ? TextFormatting.WHITE : color;
         team.setColor(actual);
         team.setPrefix(fitPrefix(actual, name));
+        team.setNameTagVisibility(Team.EnumVisible.HIDE_FOR_OTHER_TEAMS);
         updateTabNames(server, team);
     }
 
@@ -178,29 +181,43 @@ public final class GroupManager {
         return null;
     }
 
-    /** Group tag in the team color, followed by the plain white nickname. */
-    public static ITextComponent buildTabName(MinecraftServer server, EntityPlayerMP player) {
-        ScorePlayerTeam team = scoreboard(server).getPlayersTeam(player.getName());
+    /**
+     * Tab-list name, per viewer: teammates see "[TAG] Nickname", everyone
+     * else sees "???" - nicknames are team-private. Players without a group
+     * show their plain name.
+     */
+    public static ITextComponent buildTabName(MinecraftServer server, EntityPlayerMP viewer, EntityPlayerMP target) {
+        Scoreboard sb = scoreboard(server);
+        ScorePlayerTeam viewerTeam = sb.getPlayersTeam(viewer.getName());
+        ScorePlayerTeam targetTeam = sb.getPlayersTeam(target.getName());
         TextComponentString line = new TextComponentString("");
-        if (team != null) {
-            TextFormatting color = team.getColor() == null ? TextFormatting.WHITE : team.getColor();
-            TextComponentString tag = new TextComponentString(String.format(ModConfig.groupPrefixFormat, team.getName()));
+        if (targetTeam == null) {
+            line.appendSibling(new TextComponentString(target.getName()));
+            return line;
+        }
+        TextFormatting color = targetTeam.getColor() == null ? TextFormatting.WHITE : targetTeam.getColor();
+        if (viewerTeam != null && viewerTeam.isSameTeam(targetTeam)) {
+            TextComponentString tag = new TextComponentString(String.format(ModConfig.groupPrefixFormat, targetTeam.getName()));
             tag.getStyle().setColor(color);
             line.appendSibling(tag);
+            line.appendSibling(new TextComponentString(target.getName()));
+        } else {
+            line.appendSibling(new TextComponentString(TextFormatting.GRAY + "???"));
         }
-        line.appendSibling(new TextComponentString(player.getName()));
         return line;
     }
 
-    /** Pushes one player's custom tab entry to everyone online. */
-    public static void updateTabName(MinecraftServer server, EntityPlayerMP player) {
-        SPacketPlayerListItem packet = buildDisplayPacket(server, player);
-        if (packet != null) {
-            server.getPlayerList().sendPacketToAllPlayers(packet);
+    /** Pushes one player's custom tab entry, built per receiver, to everyone online. */
+    public static void updateTabName(MinecraftServer server, EntityPlayerMP target) {
+        for (EntityPlayerMP receiver : server.getPlayerList().getPlayers()) {
+            SPacketPlayerListItem packet = buildDisplayPacket(server, receiver, target);
+            if (packet != null) {
+                receiver.connection.sendPacket(packet);
+            }
         }
     }
 
-    /** Pushes every online player's custom tab entry to one player (used right after login). */
+    /** Pushes every online player's custom tab entry (built per receiver) to one player (used right after login). */
     public static void sendAllTabNamesTo(MinecraftServer server, EntityPlayerMP recipient) {
         SPacketPlayerListItem packet = new SPacketPlayerListItem();
         if (TAB_PACKET_ACTION == null || TAB_PACKET_ENTRIES == null) {
@@ -217,7 +234,7 @@ public final class GroupManager {
                         online.getGameProfile(),
                         online.ping,
                         online.interactionManager.getGameType(),
-                        buildTabName(server, online)));
+                        buildTabName(server, recipient, online)));
             }
             recipient.connection.sendPacket(packet);
         } catch (Throwable t) {
@@ -225,7 +242,7 @@ public final class GroupManager {
         }
     }
 
-    private static SPacketPlayerListItem buildDisplayPacket(MinecraftServer server, EntityPlayerMP player) {
+    private static SPacketPlayerListItem buildDisplayPacket(MinecraftServer server, EntityPlayerMP viewer, EntityPlayerMP target) {
         if (TAB_PACKET_ACTION == null || TAB_PACKET_ENTRIES == null) {
             warnOnce();
             return null;
@@ -237,10 +254,10 @@ public final class GroupManager {
             List<SPacketPlayerListItem.AddPlayerData> entries =
                     (List<SPacketPlayerListItem.AddPlayerData>) TAB_PACKET_ENTRIES.get(packet);
             entries.add(packet.new AddPlayerData(
-                    player.getGameProfile(),
-                    player.ping,
-                    player.interactionManager.getGameType(),
-                    buildTabName(server, player)));
+                    target.getGameProfile(),
+                    target.ping,
+                    target.interactionManager.getGameType(),
+                    buildTabName(server, viewer, target)));
             return packet;
         } catch (Throwable t) {
             GroupLivesMod.log().warn("Failed to build tab list display name packet", t);

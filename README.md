@@ -57,6 +57,21 @@ Players only need Forge on their client — the mod itself is server-side.
 Requests expire after 60 seconds. Taking damage during the countdown cancels
 the teleport. Warmup and request timeout are configurable.
 
+### Custom HUD
+
+The vanilla hearts, hunger and armor rows are replaced with a compact bar
+HUD above the hotbar: an **HP bar with a percentage**, a **hunger bar**, and
+the worn **armor pieces with their durability bars**. The team panel
+(«ВАША КОМАНДА») also shows a live **HP bar for every teammate**.
+
+### Nickname privacy
+
+Nicknames are **team-private**: only teammates see your nickname (tab list,
+chat, above your head). Everyone else sees «???» — your nametag above the
+head is hidden from other teams entirely. Players without a group show
+their plain name. (Vanilla death/achievement messages still contain real
+names — those are broadcast by the server itself.)
+
 ### Team tasks — `/task` + always-visible draggable panel + constructor GUI
 
 The **«ВАША КОМАНДА»** panel is always visible on the HUD (initial position

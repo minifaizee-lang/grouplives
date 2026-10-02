@@ -1,9 +1,11 @@
 package io.github.minifaizeelang.grouplives.client;
 
+import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.network.NetworkPlayerInfo;
 import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.scoreboard.ScorePlayerTeam;
 import net.minecraft.scoreboard.Scoreboard;
 import net.minecraft.util.text.TextFormatting;
@@ -13,8 +15,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Team teleport menu: lists online group members with avatars; clicking a
- * member sends them a /tpa request - no typing required.
+ * Team teleport menu: lists online group members with avatars, their HP and
+ * a themed request row; clicking a member sends them a /tpa request.
  */
 public class GuiTeamTeleport extends GuiScreen {
 
@@ -30,11 +32,21 @@ public class GuiTeamTeleport extends GuiScreen {
         this.parentScreen = parentScreen;
     }
 
+    private static int colorOf(ScorePlayerTeam team) {
+        TextFormatting format = team.getColor();
+        int index = format != null ? format.getColorIndex() : -1;
+        int[] rgb = {
+                0x000000, 0x0000AA, 0x00AA00, 0x00AAAA, 0xAA0000, 0xAA00AA, 0xFFAA00, 0xAAAAAA,
+                0x555555, 0x5555FF, 0x55FF55, 0x55FFFF, 0xFF5555, 0xFF55FF, 0xFFFF55, 0xFFFFFF,
+        };
+        return 0xFF000000 | (index >= 0 && index < rgb.length ? rgb[index] : 0xFFFFFF);
+    }
+
     @Override
     public void initGui() {
         this.buttonList.clear();
         this.mates.clear();
-        this.buttonList.add(new ThemeButton(ID_BACK, this.width / 2 - 60, this.height - 24, 120, 16, "Назад"));
+        this.buttonList.add(new ThemeButton(ID_BACK, this.width / 2 - 60, this.height - 26, 120, 16, "Назад"));
 
         if (this.mc.player == null || this.mc.world == null || this.mc.getConnection() == null) {
             return;
@@ -47,7 +59,7 @@ public class GuiTeamTeleport extends GuiScreen {
         }
         List<String> members = new ArrayList<String>(myTeam.getMembershipCollection());
         members.sort(String::compareTo);
-        int y = 44;
+        int y = 72;
         for (String member : members) {
             if (member.equals(self)) {
                 continue;
@@ -55,62 +67,79 @@ public class GuiTeamTeleport extends GuiScreen {
             if (this.mc.getConnection().getPlayerInfo(member) == null) {
                 continue; // offline
             }
-            if (y + 20 > this.height - 30) {
+            if (y + 26 > this.height - 40) {
                 break;
             }
             this.mates.add(member);
-            PanelButton row = new PanelButton(ROW_BASE + this.mates.size() - 1, this.width / 2 - 110, y, 220, 20,
-                    member, colorOf(myTeam));
+            PanelButton row = new PanelButton(ROW_BASE + this.mates.size() - 1,
+                    this.width / 2 - 140, y, 280, 28, member, colorOf(myTeam));
             row.description = "нажмите - запрос телепорта (/tpa)";
             this.buttonList.add(row);
-            y += 24;
+            y += 32;
         }
-    }
-
-    private static int colorOf(ScorePlayerTeam team) {
-        TextFormatting format = team.getColor();
-        int index = format != null ? format.getColorIndex() : -1;
-        int[] rgb = {
-                0x000000, 0x0000AA, 0x00AA00, 0x00AAAA, 0xAA0000, 0xAA00AA, 0xFFAA00, 0xAAAAAA,
-                0x555555, 0x5555FF, 0x55FF55, 0x55FFFF, 0xFF5555, 0xFF55FF, 0xFFFF55, 0xFFFFFF,
-        };
-        return 0xFF000000 | (index >= 0 && index < rgb.length ? rgb[index] : 0xFFFFFF);
     }
 
     @Override
     public void drawScreen(int mouseX, int mouseY, float partialTicks) {
         drawGradientRect(0, 0, this.width, this.height, 0xFF231826, 0xFF05040A);
+
+        int px = this.width / 2 - 150;
+        int pw = 300;
+        int ph = this.height - 30 - 36;
+        UiTheme.panelHazard(px, 30, pw, ph, UiTheme.YELLOW);
+        UiTheme.trefoil(px + 12, 42);
+
         String title = "КОМАНДА";
         int cx = this.width / 2;
-        drawCenteredString(this.fontRenderer, title, cx - 1, 14, 0xFFFF4D4D);
-        drawCenteredString(this.fontRenderer, title, cx + 1, 14, 0xFF4DFFFF);
-        drawCenteredString(this.fontRenderer, title, cx, 14, 0xFFF5F2F7);
-        drawCenteredString(this.fontRenderer, "телепорт к сокомандникам", cx, 26, 0xFF8A7F96);
+        drawCenteredString(this.fontRenderer, title, cx - 1, 40, 0xFFFF4D4D);
+        drawCenteredString(this.fontRenderer, title, cx + 1, 40, 0xFF4DFFFF);
+        drawCenteredString(this.fontRenderer, title, cx, 40, UiTheme.TEXT);
+        drawCenteredString(this.fontRenderer, "телепорт к сокомандникам", cx, 52, UiTheme.TEXT_DIM);
 
         if (mates.isEmpty()) {
-            String message = noTeamReason();
-            drawCenteredString(this.fontRenderer, message, cx, this.height / 2 - 10, 0xFF9A8FA8);
+            drawCenteredString(this.fontRenderer, noTeamReason(), cx, this.height / 2, UiTheme.TEXT_DIM);
         }
 
         super.drawScreen(mouseX, mouseY, partialTicks);
 
-        // Avatars on top of the rows.
+        // Avatars and HP bars on top of the rows.
+        Scoreboard sb = this.mc.world != null ? this.mc.world.getScoreboard() : null;
+        ScorePlayerTeam myTeam = this.mc.player != null && sb != null
+                ? sb.getPlayersTeam(this.mc.player.getName()) : null;
         for (int i = 0; i < mates.size(); i++) {
+            int rowY = 72 + i * 32;
             NetworkPlayerInfo info = this.mc.getConnection() != null
                     ? this.mc.getConnection().getPlayerInfo(mates.get(i)) : null;
             if (info != null) {
-                int y = 44 + i * 24;
                 this.mc.getTextureManager().bindTexture(info.getLocationSkin());
                 GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
-                net.minecraft.client.gui.Gui.drawScaledCustomSizeModalRect(this.width / 2 - 107, y + 3, 8, 8, 8, 8, 14, 14, 64, 64);
+                Gui.drawScaledCustomSizeModalRect(px + 14, rowY + 4, 8, 8, 8, 8, 20, 20, 64, 64);
                 GlStateManager.enableBlend();
-                net.minecraft.client.gui.Gui.drawScaledCustomSizeModalRect(this.width / 2 - 107, y + 3, 40, 8, 8, 8, 14, 14, 64, 64);
+                Gui.drawScaledCustomSizeModalRect(px + 14, rowY + 4, 40, 8, 8, 8, 20, 20, 64, 64);
                 GlStateManager.disableBlend();
+            }
+            EntityPlayer entity = TaskHud.findPlayer(this.mc, mates.get(i));
+            if (entity != null) {
+                float max = entity.getMaxHealth();
+                float frac = max > 0 ? Math.min(1.0F, Math.max(0.0F, entity.getHealth() / max)) : 0.0F;
+                int bx = px + pw - 90;
+                Gui.drawRect(bx, rowY + 12, bx + 70, rowY + 16, 0xFF3B3344);
+                int fill = (int) (70 * frac);
+                if (fill > 0) {
+                    Gui.drawRect(bx, rowY + 12, bx + fill, rowY + 16, TaskHud.hpColor(frac));
+                }
+                String pct = (int) (frac * 100) + "%";
+                this.fontRenderer.drawStringWithShadow(pct, bx + 74, rowY + 9, UiTheme.TEXT_DIM);
+            }
+            if (myTeam != null) {
+                String tag = "[" + myTeam.getName() + "]";
+                this.fontRenderer.drawStringWithShadow(tag, px + pw - 12 - this.fontRenderer.getStringWidth(tag),
+                        rowY + 3, colorOf(myTeam));
             }
         }
 
         if (hint != null && System.currentTimeMillis() < hintUntil) {
-            drawCenteredString(this.fontRenderer, hint, cx, this.height - 40, 0xFF7CC24A);
+            drawCenteredString(this.fontRenderer, hint, cx, this.height - 44, UiTheme.GREEN);
         }
     }
 

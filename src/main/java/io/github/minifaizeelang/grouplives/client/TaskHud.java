@@ -248,7 +248,8 @@ public final class TaskHud {
         }
     }
 
-    private static EntityPlayer findPlayer(Minecraft mc, String name) {
+    /** Finds a world player entity by nickname (client-side; null when offline). */
+    public static EntityPlayer findPlayer(Minecraft mc, String name) {
         if (mc.world == null) {
             return null;
         }
@@ -260,7 +261,7 @@ public final class TaskHud {
         return null;
     }
 
-    private static int hpColor(float frac) {
+    public static int hpColor(float frac) {
         if (frac > 0.5F) {
             return 0xFF55FF55;
         }

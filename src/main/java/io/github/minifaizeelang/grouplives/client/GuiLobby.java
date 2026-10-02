@@ -9,6 +9,7 @@ import net.minecraft.client.network.NetworkPlayerInfo;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.scoreboard.ScorePlayerTeam;
 import net.minecraft.scoreboard.Scoreboard;
+import net.minecraft.util.text.TextComponentString;
 import net.minecraft.util.text.TextFormatting;
 
 import java.io.IOException;
@@ -68,12 +69,25 @@ public class GuiLobby extends GuiScreen {
     private final Map<Integer, String> waitingByButton = new HashMap<Integer, String>();
 
     private GuiTextField nameField;
-    private boolean createMode;
+    private String draftName = "";
+    private boolean createPanelVisible;
+    private int createPanelY;
     private int colorIndex;
     private String lastStateKey = "";
     private String selectedWaiting;
     private int activeSlider;
     private PanelButton sizePanel;
+
+    /** RGB color for a TextFormatting-friendly name (e.g. "light_purple"). */
+    private static int colorOfFriendly(String friendly) {
+        try {
+            TextFormatting format = TextFormatting.valueOf(friendly.toUpperCase());
+            int index = format.getColorIndex();
+            return 0xFF000000 | (index >= 0 && index < FORMAT_RGB.length ? FORMAT_RGB[index] : 0xFFFFFF);
+        } catch (IllegalArgumentException e) {
+            return 0xFFFFFFFF;
+        }
+    }
 
     public GuiLobby(GuiScreen parentScreen) {
         this.parentScreen = parentScreen;
@@ -125,21 +139,9 @@ public class GuiLobby extends GuiScreen {
         this.joinTargets.clear();
         this.waitingByButton.clear();
         this.visibleTeams.clear();
-        this.nameField = null;
         this.sizePanel = null;
         this.activeSlider = 0;
-
-        if (createMode) {
-            int formY = this.height - 96;
-            this.nameField = new GuiTextField(0, this.fontRenderer, 24, formY + 26, 110, 14);
-            this.nameField.setMaxStringLength(16);
-            this.nameField.setFocused(true);
-            this.buttonList.add(new ThemeButton(ID_COLOR_CYCLE, 146, formY + 25, 104, 16, "Цвет: " + COLORS[colorIndex][1]));
-            this.buttonList.add(new ThemeButton(ID_CREATE_CONFIRM, 254, formY + 25, 60, 16, "Создать"));
-            this.buttonList.add(new ThemeButton(ID_CREATE_CANCEL, 24, formY + 46, 90, 14, "Отмена"));
-            this.buttonList.add(new ThemeButton(ID_BACK, this.width - 70, this.height - 22, 60, 16, "Назад"));
-            return;
-        }
+        this.createPanelVisible = false;
 
         Scoreboard sb = this.mc.world != null ? this.mc.world.getScoreboard() : null;
         List<ScorePlayerTeam> teams = new ArrayList<ScorePlayerTeam>();
@@ -165,6 +167,22 @@ public class GuiLobby extends GuiScreen {
         }
 
         if (isHost()) {
+            // Create-team panel fills the gap between the cards and the waiting room
+            int createTop = cardsY() + visibleTeams.size() * (cardH() + 5) + 4;
+            int createBottom = waitingY() - 6;
+            this.createPanelVisible = createBottom - createTop >= 76;
+            if (this.createPanelVisible) {
+                this.createPanelY = createTop;
+                UiTheme.panel(leftX(), createTop, leftW(), createBottom - createTop, UiTheme.YELLOW);
+                this.nameField = new GuiTextField(0, this.fontRenderer, leftX() + 12, createTop + 22, leftW() - 24, 14);
+                this.nameField.setMaxStringLength(16);
+                this.nameField.setText(draftName);
+                this.nameField.setEnableBackgroundDrawing(false);
+                this.buttonList.add(new ThemeButton(ID_COLOR_CYCLE, leftX() + 12, createTop + 44, 92, 16,
+                        "Цвет: " + COLORS[colorIndex][1]));
+                this.buttonList.add(new ThemeButton(ID_CREATE_CONFIRM, leftX() + 112, createTop + 44, 76, 16, "Создать"));
+            }
+
             List<String> waiting = ungroupedNames();
             int wx = leftX() + 4;
             int count = Math.min(3, waiting.size());
@@ -182,16 +200,11 @@ public class GuiLobby extends GuiScreen {
                     ClientState.borderEnabled ? "ВКЛ" : "ВЫКЛ",
                     ClientState.borderEnabled ? 0xFF7CC24A : 0xFFD0483C);
             this.buttonList.add(toggle);
-            this.sizePanel = new PanelButton(ID_BORDER_PANEL, px + 4, panelY() + 30, pw - 8, 16,
-                    "РАЗМЕР", 0xFFE8B33C);
-            this.sizePanel.value = borderSize + " бл.";
-            this.buttonList.add(this.sizePanel);
             PanelButton start = new PanelButton(ID_START_PANEL, px + 4, panelY() + 100, pw - 8, 20,
                     "СТАРТ ИВЕНТА", UiTheme.YELLOW);
             this.buttonList.add(start);
         }
 
-        this.buttonList.add(new ThemeButton(ID_CREATE, 10, this.height - 24, 150, 16, "Создать команду"));
         this.buttonList.add(new ThemeButton(ID_BACK, this.width - 70, this.height - 22, 60, 16, "Назад"));
     }
 
@@ -232,8 +245,11 @@ public class GuiLobby extends GuiScreen {
 
     @Override
     public void updateScreen() {
-        if (createMode || this.mc.world == null || this.mc.getConnection() == null) {
+        if (this.mc.world == null || this.mc.getConnection() == null) {
             return;
+        }
+        if (this.nameField != null) {
+            draftName = this.nameField.getText();
         }
         Scoreboard sb = this.mc.world.getScoreboard();
         StringBuilder key = new StringBuilder();
@@ -301,32 +317,39 @@ public class GuiLobby extends GuiScreen {
                     leftW() - 20), leftX() + 10, by + 16, line.isEmpty() ? UiTheme.TEXT_FADED : UiTheme.TEXT_DIM);
         }
 
-        // Summary fills the space between the team cards and the waiting room
-        int summaryTop = cardsY() + visibleTeams.size() * (cardH() + 5) + 4;
-        int summaryBottom = waitingY() - 6;
-        if (summaryBottom - summaryTop >= 50 && !createMode) {
-            UiTheme.panel(leftX(), summaryTop, leftW(), summaryBottom - summaryTop, UiTheme.YELLOW);
-            this.fontRenderer.drawStringWithShadow("СВОДКА", leftX() + 12, summaryTop + 5, UiTheme.YELLOW);
-            this.fontRenderer.drawStringWithShadow("Игроков онлайн: " + totalOnline, leftX() + 12, summaryTop + 18, UiTheme.TEXT_DIM);
-            this.fontRenderer.drawStringWithShadow("В командах: " + (totalOnline - waiting.size()), leftX() + 12, summaryTop + 28, UiTheme.TEXT_DIM);
-            this.fontRenderer.drawStringWithShadow("Команд: " + visibleTeams.size(), leftX() + 12, summaryTop + 38, UiTheme.TEXT_DIM);
-            this.fontRenderer.drawStringWithShadow("Граница: " + (ClientState.borderEnabled ? ClientState.borderSize + " бл." : "выкл."), leftX() + 12, summaryTop + 48, UiTheme.TEXT_DIM);
-            UiTheme.trefoil(leftX() + leftW() - 36, summaryBottom - 42, 0xFF2E2508);
+        // Create-team panel header and live color preview (host)
+        if (isHost() && createPanelVisible) {
+            this.fontRenderer.drawStringWithShadow("НОВАЯ КОМАНДА", leftX() + 12, createPanelY + 5, UiTheme.YELLOW);
+            UiTheme.trefoil(leftX() + leftW() - 18, createPanelY + 6, 0xFF2E2508);
+            String draft = this.nameField != null ? this.nameField.getText().trim() : "";
+            if (draft.isEmpty()) {
+                this.fontRenderer.drawStringWithShadow("Превью: введите название команды...",
+                        leftX() + 12, createPanelY + 64, UiTheme.TEXT_FADED);
+            } else {
+                TextFormatting format;
+                try {
+                    format = TextFormatting.valueOf(COLORS[colorIndex][0].toUpperCase());
+                } catch (IllegalArgumentException e) {
+                    format = TextFormatting.WHITE;
+                }
+                TextComponentString preview = new TextComponentString(
+                        String.format(ModConfig.groupPrefixFormat, draft) + draft);
+                preview.getStyle().setColor(format);
+                this.fontRenderer.drawStringWithShadow("Превью: ", leftX() + 12, createPanelY + 64, UiTheme.TEXT_DIM);
+                this.fontRenderer.drawStringWithShadow(preview.getFormattedText(),
+                        leftX() + 12 + this.fontRenderer.getStringWidth("Превью: "), createPanelY + 64,
+                        colorOfFriendly(COLORS[colorIndex][0]));
+            }
         }
 
-        if (createMode) {
-            UiTheme.panel(10, this.height - 96, this.width - 20, 72, UiTheme.YELLOW);
-            this.fontRenderer.drawStringWithShadow("Название команды:", 24, this.height - 86, UiTheme.TEXT_DIM);
-        } else {
-            // Waiting room
-            UiTheme.panel(leftX(), waitingY(), leftW(), 26, 0xFF8A7F96);
-            this.fontRenderer.drawStringWithShadow("ОЖИДАЮТ КОМАНДЫ", leftX() + 10, waitingY() + 3, UiTheme.TEXT);
-            if (waiting.isEmpty()) {
-                this.fontRenderer.drawStringWithShadow("все игроки распределены", leftX() + 10, waitingY() + 14, UiTheme.TEXT_FADED);
-            } else if (!isHost()) {
-                this.fontRenderer.drawStringWithShadow(truncate(String.join(", ", waiting), leftW() - 20),
-                        leftX() + 10, waitingY() + 14, UiTheme.TEXT_DIM);
-            }
+        // Waiting room
+        UiTheme.panel(leftX(), waitingY(), leftW(), 26, 0xFF8A7F96);
+        this.fontRenderer.drawStringWithShadow("ОЖИДАЮТ КОМАНДЫ", leftX() + 10, waitingY() + 3, UiTheme.TEXT);
+        if (waiting.isEmpty()) {
+            this.fontRenderer.drawStringWithShadow("все игроки распределены", leftX() + 10, waitingY() + 14, UiTheme.TEXT_FADED);
+        } else if (!isHost()) {
+            this.fontRenderer.drawStringWithShadow(truncate(String.join(", ", waiting), leftW() - 20),
+                    leftX() + 10, waitingY() + 14, UiTheme.TEXT_DIM);
         }
 
         // Right column
@@ -334,6 +357,9 @@ public class GuiLobby extends GuiScreen {
             UiTheme.panel(rightX(), panelY(), rightW(), 126, UiTheme.YELLOW);
             this.fontRenderer.drawStringWithShadow("НАСТРОЙКИ МИРА", rightX() + 10, panelY() + 3, UiTheme.YELLOW);
             this.fontRenderer.drawStringWithShadow("ГРАНИЦА МИРА", rightX() + 10, panelY() + 16, UiTheme.TEXT_DIM);
+            String sizeText = ClientState.borderSize + " бл.";
+            this.fontRenderer.drawStringWithShadow(sizeText,
+                    rightX() + rightW() - 12 - this.fontRenderer.getStringWidth(sizeText), panelY() + 16, UiTheme.TEXT);
             drawSlider(1);
             // ДИСТАНЦИЯ row - same style as the РАЗМЕР row
             int rowY = panelY() + 62;
@@ -354,7 +380,7 @@ public class GuiLobby extends GuiScreen {
 
         super.drawScreen(mouseX, mouseY, partialTicks);
 
-        if (createMode && this.nameField != null) {
+        if (isHost() && createPanelVisible && this.nameField != null) {
             this.nameField.drawTextBox();
         }
     }
@@ -480,25 +506,17 @@ public class GuiLobby extends GuiScreen {
                 sendCommand("/event start " + borderSize + " " + teamSpacing);
                 this.mc.displayGuiScreen(null);
                 return;
-            case ID_CREATE:
-                this.createMode = true;
-                initGui();
-                return;
-            case ID_CREATE_CANCEL:
-                this.createMode = false;
-                initGui();
-                return;
             case ID_COLOR_CYCLE:
-                this.colorIndex = (this.colorIndex + 1) % COLORS.length;
-                initGui();
+                colorIndex = (colorIndex + 1) % COLORS.length;
+                button.displayString = "Цвет: " + COLORS[colorIndex][1];
                 return;
             case ID_CREATE_CONFIRM: {
                 String name = this.nameField != null ? this.nameField.getText().trim() : "";
                 if (!name.isEmpty()) {
                     sendCommand("/group create " + name + " " + COLORS[colorIndex][0]);
-                    this.createMode = false;
+                    draftName = "";
+                    this.nameField.setText("");
                 }
-                initGui();
                 return;
             }
             default:
@@ -514,10 +532,10 @@ public class GuiLobby extends GuiScreen {
     @Override
     protected void mouseClicked(int mouseX, int mouseY, int mouseButton) throws IOException {
         super.mouseClicked(mouseX, mouseY, mouseButton);
-        if (createMode && this.nameField != null) {
+        if (this.nameField != null) {
             this.nameField.mouseClicked(mouseX, mouseY, mouseButton);
         }
-        if (!createMode && mouseButton == 0) {
+        if (mouseButton == 0) {
             if (inSlider(1, mouseX, mouseY)) {
                 this.activeSlider = 1;
                 updateSlider(1, mouseX);
@@ -543,7 +561,7 @@ public class GuiLobby extends GuiScreen {
 
     @Override
     protected void keyTyped(char typedChar, int keyCode) throws IOException {
-        if (createMode && this.nameField != null && this.nameField.isFocused()) {
+        if (this.nameField != null && this.nameField.isFocused()) {
             if (keyCode == 1) {
                 this.nameField.setFocused(false);
                 return;
@@ -556,12 +574,7 @@ public class GuiLobby extends GuiScreen {
             return;
         }
         if (keyCode == 1) {
-            if (createMode) {
-                this.createMode = false;
-                initGui();
-            } else {
-                this.mc.displayGuiScreen(this.parentScreen);
-            }
+            this.mc.displayGuiScreen(this.parentScreen);
         } else {
             super.keyTyped(typedChar, keyCode);
         }

@@ -3,7 +3,9 @@ package io.github.minifaizeelang.grouplives.client;
 import io.github.minifaizeelang.grouplives.GroupLivesMod;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiButton;
+import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.GuiIngameMenu;
+import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.settings.KeyBinding;
 import net.minecraft.util.text.TextComponentString;
 import net.minecraft.util.text.TextFormatting;
@@ -25,9 +27,7 @@ import org.lwjgl.input.Keyboard;
 @Mod.EventBusSubscriber(value = Side.CLIENT, modid = GroupLivesMod.MODID)
 public final class ClientEvents {
 
-    private static final int LOBBY_BUTTON_ID = 7321;
-    private static final int TP_BUTTON_ID = 7323;
-    private static final int TASKS_BUTTON_ID = 7325;
+    private static final int MENU_BUTTON_ID = 7321;
 
     public static final KeyBinding LOBBY_KEY = new KeyBinding("Лобби ивента", Keyboard.KEY_L, "Groups & Lives");
 
@@ -83,32 +83,28 @@ public final class ClientEvents {
         }
     }
 
+    /** Opens the lobby from the mod menu (with the host-only gate after start). */
+    public static void openLobbyScreen(GuiScreen parent) {
+        Minecraft mc = Minecraft.getMinecraft();
+        if (canOpenLobby(mc, true)) {
+            mc.displayGuiScreen(new GuiLobby(parent));
+        }
+    }
+
     @SubscribeEvent
     public static void onGuiInit(GuiScreenEvent.InitGuiEvent.Post event) {
         if (event.getGui() instanceof GuiIngameMenu) {
-            event.getButtonList().add(new GuiButton(LOBBY_BUTTON_ID,
-                    event.getGui().width / 2 - 100, event.getGui().height / 4 + 150, 200, 16, "Лобби ивента"));
-            event.getButtonList().add(new GuiButton(TP_BUTTON_ID,
-                    event.getGui().width / 2 - 100, event.getGui().height / 4 + 168, 200, 16, "Телепорт к товарищу"));
-            event.getButtonList().add(new GuiButton(TASKS_BUTTON_ID,
-                    event.getGui().width / 2 - 100, event.getGui().height / 4 + 186, 200, 16, "Задачи команды"));
+            event.getButtonList().add(new GuiButton(MENU_BUTTON_ID,
+                    event.getGui().width / 2 - 100, event.getGui().height / 4 + 150, 200, 16, "Командное выживание"));
         }
     }
 
     @SubscribeEvent
     public static void onActionPerformed(GuiScreenEvent.ActionPerformedEvent.Pre event) {
-        Minecraft mc = Minecraft.getMinecraft();
-        if (event.getButton().id == LOBBY_BUTTON_ID) {
+        if (event.getButton().id == MENU_BUTTON_ID) {
             event.setCanceled(true);
-            if (canOpenLobby(mc, true)) {
-                mc.displayGuiScreen(new GuiLobby(event.getGui()));
-            }
-        } else if (event.getButton().id == TP_BUTTON_ID) {
-            event.setCanceled(true);
-            mc.displayGuiScreen(new GuiTeamTeleport(event.getGui()));
-        } else if (event.getButton().id == TASKS_BUTTON_ID) {
-            event.setCanceled(true);
-            mc.displayGuiScreen(new GuiTeamTasks(event.getGui()));
+            Minecraft mc = Minecraft.getMinecraft();
+            mc.displayGuiScreen(new GuiModMenu(event.getGui()));
         }
     }
 

@@ -54,7 +54,7 @@ public class GuiModMenu extends GuiScreen {
 
     @Override
     public void drawScreen(int mouseX, int mouseY, float partialTicks) {
-        drawGradientRect(0, 0, this.width, this.height, 0xFF0A0F0A, 0xFF040704);
+        Gui.drawRect(0, 0, this.width, this.height, 0xFF000000);
         UiTheme.scanlines(0, 0, this.width, this.height);
 
         // Outer thin frame with a dash at the top center (reference style)

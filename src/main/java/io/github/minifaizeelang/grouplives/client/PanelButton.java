@@ -12,6 +12,7 @@ import net.minecraft.client.gui.GuiButton;
 public class PanelButton extends GuiButton {
 
     private final int accentColor;
+    private int currentAccent;
     public String description = "";
     public String value = "";
 
@@ -19,6 +20,12 @@ public class PanelButton extends GuiButton {
                        String title, int accentColor) {
         super(buttonId, x, y, widthIn, heightIn, title);
         this.accentColor = accentColor;
+        this.currentAccent = accentColor;
+    }
+
+    /** Allows live recolor of the accent bar (e.g. border toggle state). */
+    public void setAccent(int accent) {
+        this.currentAccent = accent;
     }
 
     @Override
@@ -38,10 +45,10 @@ public class PanelButton extends GuiButton {
         drawRect(this.x, this.y + this.height - 1, this.x + this.width, this.y + this.height, edge);
         drawRect(this.x, this.y, this.x + 1, this.y + this.height, edge);
         drawRect(this.x + this.width - 1, this.y, this.x + this.width, this.y + this.height, edge);
-        drawRect(this.x + 3, this.y + 3, this.x + 5, this.y + this.height - 3, this.accentColor);
+        drawRect(this.x + 3, this.y + 3, this.x + 5, this.y + this.height - 3, this.currentAccent);
         UiTheme.cornerBrackets(this.x, this.y, this.width, this.height);
 
-        mc.fontRenderer.drawStringWithShadow(this.displayString, this.x + 11, this.y + 5, this.accentColor);
+        mc.fontRenderer.drawStringWithShadow(this.displayString, this.x + 11, this.y + 5, this.currentAccent);
         if (!this.description.isEmpty()) {
             mc.fontRenderer.drawStringWithShadow(this.description, this.x + 13, this.y + this.height - 14, UiTheme.TEXT_DIM);
         }

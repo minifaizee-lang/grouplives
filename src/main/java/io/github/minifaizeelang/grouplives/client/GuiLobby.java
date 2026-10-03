@@ -59,7 +59,7 @@ public class GuiLobby extends GuiScreen {
     private static final int SPACING_MAX = 2000;
     private static final int SPACING_STEP = 50;
 
-    /** Host's values; live for the session and applied by /event start or the size panel. */
+    /** Host's values; live for the session and applied by /event start. */
     public static int teamSpacing = ModConfig.teamSpacing;
     public static int borderSize = ModConfig.eventBorderSize;
 
@@ -77,6 +77,7 @@ public class GuiLobby extends GuiScreen {
     private String selectedWaiting;
     private int activeSlider;
     private PanelButton sizePanel;
+    private PanelButton toggleButton;
 
     /** RGB color for a TextFormatting-friendly name (e.g. "light_purple"). */
     private static int colorOfFriendly(String friendly) {
@@ -196,10 +197,10 @@ public class GuiLobby extends GuiScreen {
 
             int px = rightX();
             int pw = rightW();
-            PanelButton toggle = new PanelButton(ID_BORDER_TOGGLE, px + pw - 58, panelY() + 13, 54, 14,
+            this.toggleButton = new PanelButton(ID_BORDER_TOGGLE, px + pw - 58, panelY() + 13, 54, 14,
                     ClientState.borderEnabled ? "ВКЛ" : "ВЫКЛ",
                     ClientState.borderEnabled ? 0xFF7CC24A : 0xFFD0483C);
-            this.buttonList.add(toggle);
+            this.buttonList.add(this.toggleButton);
             PanelButton start = new PanelButton(ID_START_PANEL, px + 4, panelY() + 100, pw - 8, 20,
                     "СТАРТ ИВЕНТА", UiTheme.YELLOW);
             this.buttonList.add(start);
@@ -251,7 +252,15 @@ public class GuiLobby extends GuiScreen {
         if (this.nameField != null) {
             draftName = this.nameField.getText();
         }
-        Scoreboard sb = this.mc.world.getScoreboard();
+        // Keep the border toggle in sync with the server state (packet updates arrive async)
+        if (this.toggleButton != null) {
+            String label = ClientState.borderEnabled ? "ВКЛ" : "ВЫКЛ";
+            int accent = ClientState.borderEnabled ? 0xFF7CC24A : 0xFFD0483C;
+            if (!this.toggleButton.displayString.equals(label)) {
+                this.toggleButton.displayString = label;
+                this.toggleButton.setAccent(accent);
+            }
+        }        Scoreboard sb = this.mc.world.getScoreboard();
         StringBuilder key = new StringBuilder();
         for (ScorePlayerTeam team : sb.getTeams()) {
             key.append(team.getName()).append('|')
@@ -274,7 +283,7 @@ public class GuiLobby extends GuiScreen {
 
     @Override
     public void drawScreen(int mouseX, int mouseY, float partialTicks) {
-        drawGradientRect(0, 0, this.width, this.height, 0xFF231826, 0xFF05040A);
+        Gui.drawRect(0, 0, this.width, this.height, 0xFF000000);
         UiTheme.scanlines(0, 0, this.width, this.height);
 
         // Banner
@@ -362,7 +371,7 @@ public class GuiLobby extends GuiScreen {
             Gui.drawRect(rightX() + 4, sizeRowY, rightX() + rightW() - 4, sizeRowY + 14, 0xFF12101A);
             Gui.drawRect(rightX() + 4, sizeRowY, rightX() + 5, sizeRowY + 14, UiTheme.YELLOW);
             this.fontRenderer.drawStringWithShadow("РАЗМЕР МИРА", rightX() + 11, sizeRowY + 3, UiTheme.YELLOW);
-            String sizeText = ClientState.borderSize + " бл.";
+            String sizeText = borderSize + " бл.";
             this.fontRenderer.drawStringWithShadow(sizeText,
                     rightX() + rightW() - 12 - this.fontRenderer.getStringWidth(sizeText), sizeRowY + 3, UiTheme.TEXT);
             drawSlider(1);
@@ -502,10 +511,9 @@ public class GuiLobby extends GuiScreen {
                 this.mc.displayGuiScreen(this.parentScreen);
                 return;
             case ID_BORDER_TOGGLE:
-                sendCommand("/event border " + (ClientState.borderEnabled ? "off" : "on"));
-                return;
-            case ID_BORDER_PANEL:
-                sendCommand("/event border " + borderSize);
+                // Send based on what the user sees on the button
+                boolean currentlyOn = this.toggleButton != null && "ВКЛ".equals(this.toggleButton.displayString);
+                sendCommand("/event border " + (currentlyOn ? "off" : "on"));
                 return;
             case ID_START_PANEL:
                 sendCommand("/event start " + borderSize + " " + teamSpacing);

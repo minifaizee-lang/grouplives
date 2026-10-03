@@ -260,7 +260,7 @@ public class GuiTeamTasks extends GuiScreen {
 
     @Override
     public void drawScreen(int mouseX, int mouseY, float partialTicks) {
-        drawGradientRect(0, 0, this.width, this.height, 0xFF231826, 0xFF05040A);
+        Gui.drawRect(0, 0, this.width, this.height, 0xFF000000);
         UiTheme.scanlines(0, 0, this.width, this.height);
         String title = "ЗАДАЧИ КОМАНДЫ";
         int cx = this.width / 2;

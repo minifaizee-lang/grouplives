@@ -1,6 +1,5 @@
 package io.github.minifaizeelang.grouplives;
 
-import io.github.minifaizeelang.grouplives.network.NetworkHandler;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.network.play.server.SPacketChat;
 import net.minecraft.server.MinecraftServer;
@@ -32,7 +31,6 @@ public final class ModEvents {
         LivesManager.onLogin(player.mcServer, player);
         GroupManager.sendAllTabNamesTo(player.mcServer, player);
         GroupManager.updateTabName(player.mcServer, player);
-        NetworkHandler.sendEventStateTo(player);
     }
 
     /**
@@ -105,7 +103,6 @@ public final class ModEvents {
             MinecraftServer server = FMLCommonHandler.instance().getMinecraftServerInstance();
             if (server != null) {
                 TeleportManager.tick(server);
-                EventManager.tick(server);
             }
         }
     }

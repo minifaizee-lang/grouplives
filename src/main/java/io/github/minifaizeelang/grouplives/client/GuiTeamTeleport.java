@@ -77,7 +77,7 @@ public class GuiTeamTeleport extends GuiScreen {
             }
             this.mates.add(member.getName());
             PanelButton row = new PanelButton(ROW_BASE + this.mates.size() - 1,
-                    this.width / 2 - 140, y, 280, 28, member.getName(), colorOf(myTeam));
+                    this.width / 2 - 140, y, 280, 28, "", colorOf(myTeam));
             this.buttonList.add(row);
             y += 32;
         }
@@ -92,6 +92,7 @@ public class GuiTeamTeleport extends GuiScreen {
         int pw = 300;
         int ph = this.height - 30 - 36;
         UiTheme.panelHazard(px, 30, pw, ph, UiTheme.YELLOW);
+        UiTheme.grid(px + 2, 32, pw - 4, ph - 4);
         UiTheme.trefoil(px + 12, 42);
 
         String title = "КОМАНДА";
@@ -105,7 +106,7 @@ public class GuiTeamTeleport extends GuiScreen {
 
         super.drawScreen(mouseX, mouseY, partialTicks);
 
-        // Avatars and HP bars on top of the rows.
+        // Avatar, nickname and team tag on top of each row (no HP indicator).
         Scoreboard sb = this.mc.world != null ? this.mc.world.getScoreboard() : null;
         ScorePlayerTeam myTeam = this.mc.player != null && sb != null
                 ? sb.getPlayersTeam(this.mc.player.getName()) : null;
@@ -121,19 +122,8 @@ public class GuiTeamTeleport extends GuiScreen {
                 Gui.drawScaledCustomSizeModalRect(px + 14, rowY + 4, 40, 8, 8, 8, 20, 20, 64, 64);
                 GlStateManager.disableBlend();
             }
-            EntityPlayer entity = findPlayer(this.mc, mates.get(i));
-            if (entity != null) {
-                float max = entity.getMaxHealth();
-                float frac = max > 0 ? Math.min(1.0F, Math.max(0.0F, entity.getHealth() / max)) : 0.0F;
-                int bx = px + pw - 90;
-                Gui.drawRect(bx, rowY + 12, bx + 70, rowY + 16, 0xFF3B3344);
-                int fill = (int) (70 * frac);
-                if (fill > 0) {
-                    Gui.drawRect(bx, rowY + 12, bx + fill, rowY + 16, hpColor(frac));
-                }
-                String pct = (int) (frac * 100) + "%";
-                this.fontRenderer.drawStringWithShadow(pct, bx + 74, rowY + 9, UiTheme.TEXT_DIM);
-            }
+            // Nickname to the right of the avatar head (no overlap)
+            this.fontRenderer.drawStringWithShadow(mates.get(i), px + 44, rowY + 10, UiTheme.TEXT);
             if (myTeam != null) {
                 String tag = "[" + myTeam.getName() + "]";
                 this.fontRenderer.drawStringWithShadow(tag, px + pw - 12 - this.fontRenderer.getStringWidth(tag),

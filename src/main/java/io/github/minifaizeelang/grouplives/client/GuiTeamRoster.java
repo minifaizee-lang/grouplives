@@ -1,7 +1,6 @@
 package io.github.minifaizeelang.grouplives.client;
 
 import io.github.minifaizeelang.grouplives.GroupManager;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.GuiScreen;
@@ -64,14 +63,6 @@ public class GuiTeamRoster extends GuiScreen {
         this.parentScreen = parentScreen;
     }
 
-    /**
-     * Ownership is validated server-side; the client shows the controls to
-     * everyone and the server rejects non-owners with a clear message.
-     */
-    private boolean isOwner() {
-        return true;
-    }
-
     @Override
     public void initGui() {
         this.buttonList.clear();
@@ -86,7 +77,7 @@ public class GuiTeamRoster extends GuiScreen {
         }
 
         if (this.hasTeam) {
-            // Invite card: cycle teamless online players + invite button
+            // Invite controls (bottom-left block)
             this.inviteTargets = teamlessOnlinePlayers();
             if (this.inviteIndex >= this.inviteTargets.size()) {
                 this.inviteIndex = 0;
@@ -94,19 +85,17 @@ public class GuiTeamRoster extends GuiScreen {
             this.buttonList.add(new ThemeButton(ID_INVITE_CYCLE, 24, this.height - 118, 200, 16,
                     "Пригласить: " + currentInviteTarget()));
             this.buttonList.add(new ThemeButton(ID_INVITE, 24, this.height - 100, 200, 16, "ПРИГЛАСИТЬ"));
-            this.buttonList.add(new ThemeButton(ID_LEAVE, 24, this.height - 56, 150, 16, "Покинуть команду"));
-            if (isOwner()) {
-                this.buttonList.add(new ThemeButton(ID_DELETE, 24, this.height - 38, 150, 16, "Распустить команду"));
-            }
+            this.buttonList.add(new ThemeButton(ID_LEAVE, 24, this.height - 66, 150, 16, "Покинуть команду"));
+            this.buttonList.add(new ThemeButton(ID_DELETE, 184, this.height - 66, 150, 16, "Распустить команду"));
         } else {
-            this.nameField = new GuiTextField(0, this.fontRenderer, 24, this.height - 132, 150, 14);
+            this.nameField = new GuiTextField(0, this.fontRenderer, 24, this.height - 118, 150, 14);
             this.nameField.setMaxStringLength(16);
             this.nameField.setText(draftName);
             this.nameField.setEnableBackgroundDrawing(false);
-            this.buttonList.add(new ThemeButton(ID_COLOR_CYCLE, 190, this.height - 133, 104, 16, "Цвет: " + COLORS[colorIndex][1]));
-            this.buttonList.add(new ThemeButton(ID_CREATE, 300, this.height - 133, 84, 16, "СОЗДАТЬ"));
+            this.buttonList.add(new ThemeButton(ID_COLOR_CYCLE, 184, this.height - 119, 104, 16, "Цвет: " + COLORS[colorIndex][1]));
+            this.buttonList.add(new ThemeButton(ID_CREATE, 294, this.height - 119, 84, 16, "СОЗДАТЬ"));
         }
-        this.buttonList.add(new ThemeButton(ID_BACK, this.width - 70, this.height - 22, 60, 16, "Назад"));
+        this.buttonList.add(new ThemeButton(ID_BACK, this.width - 70, this.height - 46, 60, 16, "Назад"));
     }
 
     private String currentInviteTarget() {
@@ -178,12 +167,19 @@ public class GuiTeamRoster extends GuiScreen {
         drawCenteredString(this.fontRenderer, "СОСТАВ КОМАНДЫ", cx, 14, UiTheme.YELLOW);
         drawCenteredString(this.fontRenderer, "государственный терминал · управление отрядом", cx, 26, UiTheme.TEXT_FADED);
 
-        UiTheme.panel(10, 40, this.width - 20, this.height - 72, UiTheme.YELLOW);
+        int px = 10;
+        int pw = this.width - 20;
+        int ph = this.height - 40 - 24;
+        UiTheme.panel(px, 40, pw, ph, UiTheme.YELLOW);
+        UiTheme.grid(px + 2, 42, pw - 4, ph - 4);
+        UiTheme.trefoil(px + 14, 48, 0xFF2E2508);
+
+        this.fontRenderer.drawStringWithShadow("УПРАВЛЕНИЕ ОТРЯДОМ", px + 28, 46, UiTheme.YELLOW);
 
         if (hasTeam) {
-            drawTeamCard();
+            drawTeamCard(px, pw);
         } else {
-            drawCreateForm();
+            drawCreateForm(px, pw);
         }
 
         super.drawScreen(mouseX, mouseY, partialTicks);
@@ -192,20 +188,19 @@ public class GuiTeamRoster extends GuiScreen {
             this.nameField.drawTextBox();
         }
         if (hint != null && System.currentTimeMillis() < hintUntil) {
-            drawCenteredString(this.fontRenderer, hint, cx, this.height - 32, UiTheme.GREEN);
+            drawCenteredString(this.fontRenderer, hint, cx, this.height - 38, UiTheme.GREEN);
         }
     }
 
-    private void drawCreateForm() {
-        this.fontRenderer.drawStringWithShadow("НОВАЯ КОМАНДА", 24, 48, UiTheme.YELLOW);
-        UiTheme.trefoil(this.width - 46, 48, 0xFF2E2508);
-        this.fontRenderer.drawStringWithShadow("Название команды:", 24, this.height - 142, UiTheme.TEXT_DIM);
+    private void drawCreateForm(int px, int pw) {
+        this.fontRenderer.drawStringWithShadow("НОВАЯ КОМАНДА", px + 14, 66, UiTheme.YELLOW);
+        this.fontRenderer.drawStringWithShadow("Название команды:", px + 14, 80, UiTheme.TEXT_DIM);
 
         // Live preview: colored tag + nickname
         String draft = this.nameField != null ? this.nameField.getText().trim() : "";
         if (draft.isEmpty()) {
             this.fontRenderer.drawStringWithShadow("Превью: введите название команды...",
-                    24, this.height - 96, UiTheme.TEXT_FADED);
+                    px + 14, this.height - 166, UiTheme.TEXT_FADED);
         } else {
             TextFormatting format;
             try {
@@ -216,33 +211,28 @@ public class GuiTeamRoster extends GuiScreen {
             String nick = this.mc.player != null ? this.mc.player.getName() : "";
             String coloredTag = format.toString()
                     + String.format(GroupManager.getPrefixFormat(), draft) + TextFormatting.RESET;
-            this.fontRenderer.drawStringWithShadow("Превью: ", 24, this.height - 96, UiTheme.TEXT_DIM);
+            this.fontRenderer.drawStringWithShadow("Превью: ", px + 14, this.height - 166, UiTheme.TEXT_DIM);
             this.fontRenderer.drawStringWithShadow(coloredTag + nick,
-                    24 + this.fontRenderer.getStringWidth("Превью: "), this.height - 96, UiTheme.TEXT);
+                    px + 14 + this.fontRenderer.getStringWidth("Превью: "), this.height - 166, UiTheme.TEXT);
         }
     }
 
-    private void drawTeamCard() {
-        int x = 24;
-        int y = 48;
-        TextFormatting color = myTeam.getColor() == null ? TextFormatting.WHITE : myTeam.getColor();
-        this.fontRenderer.drawStringWithShadow("КОМАНДА:", x, y, UiTheme.TEXT_DIM);
-        this.fontRenderer.drawStringWithShadow(myTeam.getName().toUpperCase(), x + 76, y, colorOf(myTeam));
-        this.fontRenderer.drawStringWithShadow("Нажмите X у игрока, чтобы исключить (владелец).",
-                x, y + 14, UiTheme.TEXT_FADED);
+    private void drawTeamCard(int px, int pw) {
+        this.fontRenderer.drawStringWithShadow("ВАША КОМАНДА", px + 14, 66, UiTheme.YELLOW);
+        this.fontRenderer.drawStringWithShadow(myTeam.getName().toUpperCase(), px + 14, 78, colorOf(myTeam));
 
         kickRects.clear();
         List<String> members = new ArrayList<String>(myTeam.getMembershipCollection());
         Collections.sort(members);
-        int ry = y + 30;
+        int ry = 96;
         for (String member : members) {
             boolean self = member.equals(this.mc.player.getName());
-            this.fontRenderer.drawStringWithShadow(member + (self ? " (вы)" : ""), x + 12, ry, UiTheme.TEXT);
+            this.fontRenderer.drawStringWithShadow(member + (self ? " (вы)" : ""), px + 16, ry, UiTheme.TEXT);
             if (!self) {
-                this.fontRenderer.drawStringWithShadow("X", this.width - 62, ry, UiTheme.RED);
-                kickRects.add(new Object[]{this.width - 66, ry - 2, 16, 12, member});
+                this.fontRenderer.drawStringWithShadow("X", px + pw - 28, ry, UiTheme.RED);
+                kickRects.add(new Object[]{px + pw - 32, ry - 2, 16, 12, member});
             }
-            ry += 13;
+            ry += 12;
         }
     }
 
@@ -258,7 +248,7 @@ public class GuiTeamRoster extends GuiScreen {
         if (this.nameField != null) {
             this.nameField.mouseClicked(mouseX, mouseY, mouseButton);
         }
-        if (mouseButton == 0 && isOwner()) {
+        if (mouseButton == 0) {
             for (Object[] rect : kickRects) {
                 int rx = (Integer) rect[0];
                 int ryy = (Integer) rect[1];

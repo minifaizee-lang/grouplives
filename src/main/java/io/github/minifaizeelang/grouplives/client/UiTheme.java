@@ -110,6 +110,16 @@ public final class UiTheme {
         }
     }
 
+    /** Subtle white grid (сетка) for filling empty panel space. */
+    public static void grid(int x, int y, int w, int h) {
+        for (int i = 0; i <= w; i += 10) {
+            Gui.drawRect(x + i, y, x + i + 1, y + h, 0x14FFFFFF);
+        }
+        for (int j = 0; j <= h; j += 10) {
+            Gui.drawRect(x, y + j, x + w, y + j + 1, 0x14FFFFFF);
+        }
+    }
+
     /** Dark themed backdrop for text fields (draw before drawTextBox). */
     public static void field(int x, int y, int w, int h) {
         Gui.drawRect(x - 1, y - 1, x + w + 1, y + h + 1, PANEL_EDGE);

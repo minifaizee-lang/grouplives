@@ -7,7 +7,13 @@ import net.minecraft.command.WrongUsageException;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.text.TextFormatting;
 import net.minecraft.world.WorldServer;
+import net.minecraft.world.border.WorldBorder;
 
+/**
+ * Event control: scatters teams across the world (within the VANILLA world
+ * border set by the admin via /worldborder) with respawn points at the drop
+ * locations. The border itself is not managed by this mod at all.
+ */
 public class CommandEvent extends CommandBase {
 
     @Override
@@ -17,7 +23,7 @@ public class CommandEvent extends CommandBase {
 
     @Override
     public String getUsage(ICommandSender sender) {
-        return "/event <border <size|on|off>|start [size] [spacing]|info>";
+        return "/event <start [spacing]|info>";
     }
 
     @Override
@@ -31,36 +37,18 @@ public class CommandEvent extends CommandBase {
             throw new WrongUsageException(getUsage(sender));
         }
         switch (args[0].toLowerCase()) {
-            case "border": {
-                if (args.length < 2) {
-                    throw new WrongUsageException("/event border <size|on|off>");
-                }
-                if ("on".equalsIgnoreCase(args[1]) || "off".equalsIgnoreCase(args[1])) {
-                    boolean enabled = "on".equalsIgnoreCase(args[1]);
-                    EventManager.toggleBorder(server, enabled);
-                    Msg.send(sender, TextFormatting.GREEN, enabled
-                            ? "Граница мира включена." : "Граница мира выключена.");
-                    return;
-                }
-                int size = parseInt(args[1], 100, 600000);
-                EventManager.setBorder(server, size, true);
-                Msg.send(sender, TextFormatting.GREEN,
-                        "Граница мира установлена: " + size + " x " + size + ", центр - точка спавна.");
-                return;
-            }
             case "start": {
-                int size = args.length >= 2 ? parseInt(args[1], 100, 600000) : ModConfig.eventBorderSize;
-                int spacing = args.length >= 3 ? parseInt(args[2], 0, 100000) : ModConfig.teamSpacing;
-                EventManager.startEvent(server, sender, size, spacing);
+                int spacing = args.length >= 2 ? parseInt(args[1], 0, 100000) : ModConfig.teamSpacing;
+                EventManager.startEvent(server, sender, spacing);
                 return;
             }
             case "info": {
-                EventManager.EventStateData data = EventManager.data(server);
+                WorldServer world = server.getWorld(0);
+                WorldBorder border = world.getWorldBorder();
                 Msg.send(sender, TextFormatting.GOLD, "Event status:");
-                Msg.send(sender, " - Граница: " + (data.borderEnabled ? "включена" : "выключена")
-                        + ", размер " + data.borderSize + " x " + data.borderSize
-                        + " (центр " + (int) data.centerX + ", " + (int) data.centerZ + ")");
-                Msg.send(sender, " - Ивент: " + (data.started ? "идёт" : "лобби (подготовка)"));
+                Msg.send(sender, " - Граница мира (ванильная /worldborder): "
+                        + (int) border.getSize() + " x " + (int) border.getSize()
+                        + " (центр " + (int) border.getCenterX() + ", " + (int) border.getCenterZ() + ")");
                 Msg.send(sender, " - Команд с игроками онлайн: " + EventManager.activeTeams(server).size());
                 Msg.send(sender, " - Дистанция между командами: " + ModConfig.teamSpacing);
                 return;

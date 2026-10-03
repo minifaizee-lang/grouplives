@@ -30,9 +30,6 @@ public class ModConfig {
     @Config.Comment("Seconds a /tpa request stays valid before it expires.")
     public static int requestTimeoutSeconds = 60;
 
-    @Config.Comment("Default world border size in blocks for the event (e.g. 15000 = 15000 x 15000).")
-    public static int eventBorderSize = 15000;
-
     @Config.Comment("Minimum distance in blocks between scattered teams on event start.")
     public static int teamSpacing = 500;
 }

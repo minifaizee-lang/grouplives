@@ -5,7 +5,6 @@ import net.minecraftforge.fml.common.Mod.EventHandler;
 import net.minecraftforge.fml.common.event.FMLInitializationEvent;
 import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
 import net.minecraftforge.fml.common.event.FMLServerStartingEvent;
-import io.github.minifaizeelang.grouplives.network.NetworkHandler;
 import org.apache.logging.log4j.Logger;
 
 /**
@@ -23,7 +22,7 @@ public class GroupLivesMod {
 
     public static final String MODID = "grouplives";
     public static final String NAME = "Groups & Lives";
-    public static final String VERSION = "2.0.0";
+    public static final String VERSION = "2.1.0";
 
     private static Logger logger;
 
@@ -34,7 +33,6 @@ public class GroupLivesMod {
     @EventHandler
     public void preInit(FMLPreInitializationEvent event) {
         logger = event.getModLog();
-        NetworkHandler.init();
         logger.info(NAME + " " + VERSION + " initializing");
     }
 
@@ -48,6 +46,5 @@ public class GroupLivesMod {
         event.registerServerCommand(new CommandTpdeny());
         event.registerServerCommand(new CommandEvent());
         GroupManager.reapplyAllStyles(event.getServer());
-        EventManager.onServerStart(event.getServer());
     }
 }

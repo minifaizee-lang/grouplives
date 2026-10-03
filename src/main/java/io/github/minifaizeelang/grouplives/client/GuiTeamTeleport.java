@@ -1,5 +1,6 @@
 package io.github.minifaizeelang.grouplives.client;
 
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.GuiScreen;
@@ -57,22 +58,26 @@ public class GuiTeamTeleport extends GuiScreen {
         if (myTeam == null) {
             return;
         }
-        List<String> members = new ArrayList<String>(myTeam.getMembershipCollection());
-        members.sort(String::compareTo);
-        int y = 72;
-        for (String member : members) {
-            if (member.equals(self)) {
+        // List from world entities (always in sync, unlike tab-list packets)
+        List<EntityPlayer> mates = new ArrayList<EntityPlayer>();
+        for (Object o : this.mc.world.playerEntities) {
+            EntityPlayer player = (EntityPlayer) o;
+            if (player.getName().equals(self)) {
                 continue;
             }
-            if (this.mc.getConnection().getPlayerInfo(member) == null) {
-                continue; // offline
+            if (myTeam.getMembershipCollection().contains(player.getName())) {
+                mates.add(player);
             }
+        }
+        mates.sort((a, b) -> a.getName().compareTo(b.getName()));
+        int y = 72;
+        for (EntityPlayer member : mates) {
             if (y + 26 > this.height - 40) {
                 break;
             }
-            this.mates.add(member);
+            this.mates.add(member.getName());
             PanelButton row = new PanelButton(ROW_BASE + this.mates.size() - 1,
-                    this.width / 2 - 140, y, 280, 28, member, colorOf(myTeam));
+                    this.width / 2 - 140, y, 280, 28, member.getName(), colorOf(myTeam));
             this.buttonList.add(row);
             y += 32;
         }
@@ -116,7 +121,7 @@ public class GuiTeamTeleport extends GuiScreen {
                 Gui.drawScaledCustomSizeModalRect(px + 14, rowY + 4, 40, 8, 8, 8, 20, 20, 64, 64);
                 GlStateManager.disableBlend();
             }
-            EntityPlayer entity = TaskHud.findPlayer(this.mc, mates.get(i));
+            EntityPlayer entity = findPlayer(this.mc, mates.get(i));
             if (entity != null) {
                 float max = entity.getMaxHealth();
                 float frac = max > 0 ? Math.min(1.0F, Math.max(0.0F, entity.getHealth() / max)) : 0.0F;
@@ -124,7 +129,7 @@ public class GuiTeamTeleport extends GuiScreen {
                 Gui.drawRect(bx, rowY + 12, bx + 70, rowY + 16, 0xFF3B3344);
                 int fill = (int) (70 * frac);
                 if (fill > 0) {
-                    Gui.drawRect(bx, rowY + 12, bx + fill, rowY + 16, TaskHud.hpColor(frac));
+                    Gui.drawRect(bx, rowY + 12, bx + fill, rowY + 16, hpColor(frac));
                 }
                 String pct = (int) (frac * 100) + "%";
                 this.fontRenderer.drawStringWithShadow(pct, bx + 74, rowY + 9, UiTheme.TEXT_DIM);
@@ -139,6 +144,29 @@ public class GuiTeamTeleport extends GuiScreen {
         if (hint != null && System.currentTimeMillis() < hintUntil) {
             drawCenteredString(this.fontRenderer, hint, cx, this.height - 44, UiTheme.GREEN);
         }
+    }
+
+    private static EntityPlayer findPlayer(Minecraft mc, String name) {
+        if (mc.world == null) {
+            return null;
+        }
+        for (Object o : mc.world.playerEntities) {
+            EntityPlayer player = (EntityPlayer) o;
+            if (player.getName().equals(name)) {
+                return player;
+            }
+        }
+        return null;
+    }
+
+    private static int hpColor(float frac) {
+        if (frac > 0.5F) {
+            return 0xFF55FF55;
+        }
+        if (frac > 0.25F) {
+            return 0xFFFFAA00;
+        }
+        return 0xFFFF5555;
     }
 
     private String noTeamReason() {

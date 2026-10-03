@@ -23,7 +23,7 @@ public class GroupLivesMod {
 
     public static final String MODID = "grouplives";
     public static final String NAME = "Groups & Lives";
-    public static final String VERSION = "1.10.2";
+    public static final String VERSION = "2.0.0";
 
     private static Logger logger;
 
@@ -39,21 +39,14 @@ public class GroupLivesMod {
     }
 
     @EventHandler
-    public void init(FMLInitializationEvent event) {
-        if (event.getSide().isClient()) {
-            io.github.minifaizeelang.grouplives.client.ClientEvents.register();
-        }
-    }
-
-    @EventHandler
     public void serverStarting(FMLServerStartingEvent event) {
-        event.registerServerCommand(new CommandGroup());
+        event.registerServerCommand(new CommandGroup("group"));
+        event.registerServerCommand(new CommandGroup("team"));
         event.registerServerCommand(new CommandLives());
         event.registerServerCommand(new CommandTpa());
         event.registerServerCommand(new CommandTpaccept());
         event.registerServerCommand(new CommandTpdeny());
         event.registerServerCommand(new CommandEvent());
-        event.registerServerCommand(new CommandTasks());
         GroupManager.reapplyAllStyles(event.getServer());
         EventManager.onServerStart(event.getServer());
     }

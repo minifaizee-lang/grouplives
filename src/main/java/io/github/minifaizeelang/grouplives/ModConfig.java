@@ -21,12 +21,6 @@ public class ModConfig {
     @Config.Comment("Show each player's remaining lives as a number next to their name in the tab list.")
     public static boolean showLivesInTab = true;
 
-    @Config.Comment("Whether regular players may create groups with /group create (false = operators only).")
-    public static boolean playersCanCreateGroups = false;
-
-    @Config.Comment("Whether regular players may join and leave groups freely.")
-    public static boolean playersCanJoinLeaveFreely = true;
-
     @Config.Comment("Prefix shown before the player name in tab list and chat. %s is replaced with the group name.")
     public static String groupPrefixFormat = "[%s] ";
 
@@ -35,9 +29,6 @@ public class ModConfig {
 
     @Config.Comment("Seconds a /tpa request stays valid before it expires.")
     public static int requestTimeoutSeconds = 60;
-
-    @Config.Comment("Initial vertical offset of the team task panel (it can be dragged in the chat afterwards; position is saved client-side).")
-    public static int taskPanelTopOffset = 130;
 
     @Config.Comment("Default world border size in blocks for the event (e.g. 15000 = 15000 x 15000).")
     public static int eventBorderSize = 15000;

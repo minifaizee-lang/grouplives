@@ -5,15 +5,22 @@ import net.minecraft.network.play.server.SPacketPlayerListItem;
 import net.minecraft.scoreboard.ScorePlayerTeam;
 import net.minecraft.scoreboard.Scoreboard;
 import net.minecraft.scoreboard.Team;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.NBTTagList;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.text.ITextComponent;
 import net.minecraft.util.text.TextComponentString;
 import net.minecraft.util.text.TextFormatting;
+import net.minecraft.world.storage.WorldSavedData;
 
-import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
+import java.lang.reflect.Field;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import java.util.regex.Pattern;
 
 /**
@@ -33,7 +40,201 @@ public final class GroupManager {
 
     private static final Pattern VALID_NAME = Pattern.compile("^[\\p{L}\\p{N}_.|+\\-/]{1,16}$");
 
+    // ------------------------------------------------------------------
+    // Team ownership (persisted per world) and pending invites (session)
+    // ------------------------------------------------------------------
+
+    public static class GroupData extends WorldSavedData {
+
+        public static final String DATA_NAME = "grouplives_groups";
+
+        /** lowercase team name -> owner player name. */
+        private final Map<String, String> owners = new HashMap<String, String>();
+
+        public GroupData(String name) {
+            super(name);
+        }
+
+        public GroupData() {
+            super(DATA_NAME);
+        }
+
+        public String getOwner(String teamName) {
+            return owners.get(teamName.toLowerCase());
+        }
+
+        public void setOwner(String teamName, String ownerName) {
+            owners.put(teamName.toLowerCase(), ownerName);
+            markDirty();
+        }
+
+        public void removeTeam(String teamName) {
+            owners.remove(teamName.toLowerCase());
+            markDirty();
+        }
+
+        @Override
+        public void readFromNBT(NBTTagCompound nbt) {
+            owners.clear();
+            NBTTagList list = nbt.getTagList("Owners", 10);
+            for (int i = 0; i < list.tagCount(); i++) {
+                NBTTagCompound tag = list.getCompoundTagAt(i);
+                owners.put(tag.getString("Team").toLowerCase(), tag.getString("Owner"));
+            }
+        }
+
+        @Override
+        public NBTTagCompound writeToNBT(NBTTagCompound compound) {
+            NBTTagList list = new NBTTagList();
+            for (Map.Entry<String, String> entry : owners.entrySet()) {
+                NBTTagCompound tag = new NBTTagCompound();
+                tag.setString("Team", entry.getKey());
+                tag.setString("Owner", entry.getValue());
+                list.appendTag(tag);
+            }
+            compound.setTag("Owners", list);
+            return compound;
+        }
+    }
+
+    public static class PendingInvite {
+        public final String teamName;
+        public final String fromName;
+        public final long expireTick;
+
+        PendingInvite(String teamName, String fromName, long expireTick) {
+            this.teamName = teamName;
+            this.fromName = fromName;
+            this.expireTick = expireTick;
+        }
+    }
+
+    /** target player uuid -> pending invite (session-only, expires in 60s). */
+    private static final Map<UUID, PendingInvite> INVITES = new HashMap<UUID, PendingInvite>();
+
+    public static GroupData groupData(MinecraftServer server) {
+        GroupData data = (GroupData) server.getEntityWorld().getMapStorage()
+                .getOrLoadData(GroupData.class, GroupData.DATA_NAME);
+        if (data == null) {
+            data = new GroupData();
+            server.getEntityWorld().getMapStorage().setData(GroupData.DATA_NAME, data);
+        }
+        return data;
+    }
+
+    public static String getOwner(MinecraftServer server, String teamName) {
+        return groupData(server).getOwner(teamName);
+    }
+
+    public static boolean isOwner(MinecraftServer server, String teamName, String playerName) {
+        String owner = getOwner(server, teamName);
+        return owner != null && owner.equalsIgnoreCase(playerName);
+    }
+
+    private static void setOwner(MinecraftServer server, String teamName, String ownerName) {
+        groupData(server).setOwner(teamName, ownerName);
+    }
+
+    private static void removeTeamMeta(MinecraftServer server, String teamName) {
+        groupData(server).removeTeam(teamName);
+    }
+
+    /** Stores an invite for the target player. Returns false when the target already has one pending. */
+    public static boolean invite(MinecraftServer server, EntityPlayerMP from, EntityPlayerMP target, ScorePlayerTeam team) {
+        if (INVITES.containsKey(target.getUniqueID())) {
+            return false;
+        }
+        INVITES.put(target.getUniqueID(),
+                new PendingInvite(team.getName(), from.getName(), server.getTickCounter() + 1200L));
+        return true;
+    }
+
+    /** Returns and consumes the player's pending invite, or null when absent/expired/team gone. */
+    public static PendingInvite pollInvite(MinecraftServer server, EntityPlayerMP player) {
+        PendingInvite invite = INVITES.remove(player.getUniqueID());
+        if (invite == null || invite.expireTick < server.getTickCounter()
+                || scoreboard(server).getTeam(invite.teamName) == null) {
+            return null;
+        }
+        return invite;
+    }
+
+    public static PendingInvite peekInvite(MinecraftServer server, EntityPlayerMP player) {
+        return INVITES.get(player.getUniqueID());
+    }
+
+    public static void clearInvite(EntityPlayerMP player) {
+        INVITES.remove(player.getUniqueID());
+    }
+
+    /** Validates and consumes the player's pending invite, joining them to the team. Returns team name or null. */
+    public static String acceptInvite(MinecraftServer server, EntityPlayerMP player) {
+        PendingInvite invite = pollInvite(server, player);
+        if (invite == null) {
+            return null;
+        }
+        scoreboard(server).addPlayerToTeam(player.getName(), invite.teamName);
+        return invite.teamName;
+    }
+
+    /** Clears the player's pending invite without joining. Returns true when there was one. */
+    public static boolean declineInvite(EntityPlayerMP player) {
+        return INVITES.remove(player.getUniqueID()) != null;
+    }
+
+    /** Removes the target from the team; transfers ownership if the owner was removed. Returns remaining members. */
+    public static List<String> kickMember(MinecraftServer server, ScorePlayerTeam team, EntityPlayerMP target) {
+        return leaveTeam(server, target.getName());
+    }
+
+    /** Creates a team and records the creator as its owner. */
+    public static boolean createTeam(MinecraftServer server, String name, TextFormatting color, String ownerName) {
+        if (create(server, name, color) == null) {
+            return false;
+        }
+        setOwner(server, name, ownerName);
+        return true;
+    }
+
+    /** Deletes a team and returns its former members (for tab-list resync). */
+    public static List<String> deleteTeam(MinecraftServer server, String teamName) {
+        Scoreboard sb = scoreboard(server);
+        ScorePlayerTeam team = sb.getTeam(teamName);
+        List<String> members = team == null
+                ? new ArrayList<String>() : new ArrayList<String>(team.getMembershipCollection());
+        delete(server, teamName);
+        removeTeamMeta(server, teamName);
+        return members;
+    }
+
+    /**
+     * Removes the player from their team; dissolves an emptied team or hands
+     * ownership to the first remaining member. Returns the former members.
+     */
+    public static List<String> leaveTeam(MinecraftServer server, String playerName) {
+        Scoreboard sb = scoreboard(server);
+        ScorePlayerTeam team = sb.getPlayersTeam(playerName);
+        if (team == null) {
+            return Collections.emptyList();
+        }
+        List<String> remaining = new ArrayList<String>(team.getMembershipCollection());
+        remaining.remove(playerName);
+        sb.removePlayerFromTeam(playerName, team);
+        if (remaining.isEmpty()) {
+            sb.removeTeam(team);
+            removeTeamMeta(server, team.getName());
+        } else if (isOwner(server, team.getName(), playerName)) {
+            setOwner(server, team.getName(), remaining.get(0));
+        }
+        return remaining;
+    }
+
     private GroupManager() {
+    }
+
+    /** Prefix format from the config - safe to call client-side. */
+    public static String getPrefixFormat() {
+        return ModConfig.groupPrefixFormat;
     }
 
     public static boolean isValidName(String name) {

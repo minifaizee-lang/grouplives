@@ -357,9 +357,14 @@ public class GuiLobby extends GuiScreen {
             UiTheme.panel(rightX(), panelY(), rightW(), 126, UiTheme.YELLOW);
             this.fontRenderer.drawStringWithShadow("НАСТРОЙКИ МИРА", rightX() + 10, panelY() + 3, UiTheme.YELLOW);
             this.fontRenderer.drawStringWithShadow("ГРАНИЦА МИРА", rightX() + 10, panelY() + 16, UiTheme.TEXT_DIM);
+            // РАЗМЕР МИРА row - same style as ДИСТАНЦИЯ, own row so the value is never hidden
+            int sizeRowY = panelY() + 30;
+            Gui.drawRect(rightX() + 4, sizeRowY, rightX() + rightW() - 4, sizeRowY + 14, 0xFF12101A);
+            Gui.drawRect(rightX() + 4, sizeRowY, rightX() + 5, sizeRowY + 14, UiTheme.YELLOW);
+            this.fontRenderer.drawStringWithShadow("РАЗМЕР МИРА", rightX() + 11, sizeRowY + 3, UiTheme.YELLOW);
             String sizeText = ClientState.borderSize + " бл.";
             this.fontRenderer.drawStringWithShadow(sizeText,
-                    rightX() + rightW() - 12 - this.fontRenderer.getStringWidth(sizeText), panelY() + 16, UiTheme.TEXT);
+                    rightX() + rightW() - 12 - this.fontRenderer.getStringWidth(sizeText), sizeRowY + 3, UiTheme.TEXT);
             drawSlider(1);
             // ДИСТАНЦИЯ row - same style as the РАЗМЕР row
             int rowY = panelY() + 62;
@@ -414,7 +419,7 @@ public class GuiLobby extends GuiScreen {
     }
 
     private int sliderY(int which) {
-        return which == 1 ? panelY() + 50 : panelY() + 82;
+        return which == 1 ? panelY() + 48 : panelY() + 80;
     }
 
     private boolean inSlider(int which, int mouseX, int mouseY) {

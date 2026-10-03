@@ -250,6 +250,8 @@ public final class EventManager {
                     server.getPlayerList().transferPlayerToDimension(player, 0, world.getDefaultTeleporter());
                 }
                 player.connection.setPlayerLocation(x + offset[0], y, z + offset[1], rand.nextFloat() * 360.0F, 0.0F);
+                // Respawn point follows the drop location, so death returns the player to the team base
+                player.setSpawnPoint(new BlockPos(x + offset[0], y, z + offset[1]), true);
             }
 
             report.append(team.getName()).append(" -> ").append((int) x).append(", ").append((int) z)

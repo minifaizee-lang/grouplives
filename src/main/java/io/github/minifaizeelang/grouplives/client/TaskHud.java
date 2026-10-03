@@ -82,6 +82,9 @@ public final class TaskHud {
         if (name == null) {
             net.minecraft.item.Item item = net.minecraft.item.Item.getByNameOrId(task.itemId);
             name = item == null ? task.itemId : new net.minecraft.item.ItemStack(item).getDisplayName();
+            // Modded item names often carry color codes that garble small HUD text
+            String clean = net.minecraft.util.text.TextFormatting.getTextWithoutFormattingCodes(name);
+            name = clean == null ? task.itemId : clean;
             DISPLAY_CACHE.put(task.itemId, name);
         }
         return (task.type == 0 ? "добыть " : "скрафтить ") + name + " x" + task.amount;

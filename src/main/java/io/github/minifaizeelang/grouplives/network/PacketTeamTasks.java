@@ -18,6 +18,9 @@ import java.util.List;
  */
 public class PacketTeamTasks implements IMessage, IMessageHandler<PacketTeamTasks, IMessage> {
 
+    /** Special board owner for shared team tasks. */
+    public static final String TEAM_MARKER = "#team";
+
     public static class Entry {
         public final String player;
         public final int index;

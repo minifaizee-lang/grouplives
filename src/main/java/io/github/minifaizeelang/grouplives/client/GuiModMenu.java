@@ -130,25 +130,17 @@ public class GuiModMenu extends GuiScreen {
         }
     }
 
-    /** Small glyphs for the card icon boxes. */
+    /** Glyphs for the card icon boxes: bitmap patterns at 3x scale (21px). */
     private void drawGlyph(int id, int x, int y) {
         if (id == ID_LOBBY) {
-            UiTheme.trefoil(x - 1, y - 1);
+            UiTheme.pixels(UiTheme.TREFOIL_PIXELS, x, y, 3, UiTheme.YELLOW, UiTheme.PANEL_BG);
         } else if (id == ID_TP) {
-            // lightning bolt
-            Gui.drawRect(x + 3, y, x + 6, y + 3, UiTheme.YELLOW);
-            Gui.drawRect(x + 1, y + 3, x + 5, y + 6, UiTheme.YELLOW);
-            Gui.drawRect(x + 2, y + 6, x + 4, y + 10, UiTheme.YELLOW);
-            Gui.drawRect(x, y + 6, x + 2, y + 8, UiTheme.YELLOW);
+            UiTheme.pixels(UiTheme.BOLT_PIXELS, x, y, 3, UiTheme.YELLOW, UiTheme.PANEL_BG);
         } else {
-            // checklist
-            Gui.drawRect(x, y, x + 2, y + 2, UiTheme.YELLOW);
-            Gui.drawRect(x + 4, y + 1, x + 12, y + 2, UiTheme.TEXT_DIM);
-            Gui.drawRect(x, y + 4, x + 2, y + 6, UiTheme.YELLOW);
-            Gui.drawRect(x + 4, y + 5, x + 12, y + 6, UiTheme.TEXT_DIM);
-            Gui.drawRect(x + 4, y + 9, x + 12, y + 10, UiTheme.TEXT_DIM);
+            UiTheme.pixels(UiTheme.LIST_PIXELS, x, y, 3, UiTheme.YELLOW, UiTheme.PANEL_BG);
         }
     }
+
 
     @Override
     protected void mouseClicked(int mouseX, int mouseY, int mouseButton) throws IOException {

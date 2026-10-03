@@ -46,18 +46,61 @@ public final class UiTheme {
         }
     }
 
-    /** Small pixel radiation trefoil (yellow blades, dark core). */
+    /** Small pixel radiation trefoil (accent blades, dark core). */
     public static void trefoil(int x, int y) {
-        trefoil(x, y, YELLOW);
+        pixels(TREFOIL_PIXELS, x, y, 1, YELLOW, 0xFF0A0F0A);
     }
 
     /** Radiation trefoil in an arbitrary color (used for dim watermarks). */
     public static void trefoil(int x, int y, int color) {
-        Gui.drawRect(x + 3, y, x + 5, y + 2, color);
-        Gui.drawRect(x, y + 4, x + 3, y + 6, color);
-        Gui.drawRect(x + 4, y + 4, x + 7, y + 6, color);
-        Gui.drawRect(x + 2, y + 2, x + 5, y + 5, color);
-        Gui.drawRect(x + 3, y + 3, x + 4, y + 4, 0xFF0A0810);
+        pixels(TREFOIL_PIXELS, x, y, 1, color, 0xFF0A0810);
+    }
+
+    /** Radiation trefoil glyph, 7x7 cells ('X' = color, 'D' = dark core). */
+    public static final String[] TREFOIL_PIXELS = {
+            "...XX..",
+            "...XX..",
+            "..XXXX.",
+            "..XDDX.",
+            "..XDDX.",
+            "XXXXXXX",
+            "XXX.XXX",
+    };
+
+    /** Lightning bolt glyph, 7x7 cells. */
+    public static final String[] BOLT_PIXELS = {
+            "...XX..",
+            "..XX...",
+            ".XX....",
+            "XXXXXX.",
+            "...XX..",
+            "..XX...",
+            ".XX....",
+    };
+
+    /** Clipboard checklist glyph, 7x7 cells. */
+    public static final String[] LIST_PIXELS = {
+            ".XXXXX.",
+            "X.....X",
+            "X.XXX.X",
+            "X.....X",
+            "X.XXX.X",
+            "X.....X",
+            ".XXXXX.",
+    };
+
+    /** Renders a bitmap glyph: 'X' = color, 'D' = darkColor, '.' = skip. */
+    public static void pixels(String[] rows, int x, int y, int scale, int color, int darkColor) {
+        for (int j = 0; j < rows.length; j++) {
+            for (int i = 0; i < rows[j].length(); i++) {
+                char c = rows[j].charAt(i);
+                if (c == 'X') {
+                    Gui.drawRect(x + i * scale, y + j * scale, x + (i + 1) * scale, y + (j + 1) * scale, color);
+                } else if (c == 'D') {
+                    Gui.drawRect(x + i * scale, y + j * scale, x + (i + 1) * scale, y + (j + 1) * scale, darkColor);
+                }
+            }
+        }
     }
 
     /** Subtle CRT scanlines over a region (Fallout terminal feel). */

@@ -6,6 +6,7 @@ import net.minecraft.command.ICommandSender;
 import net.minecraft.command.WrongUsageException;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.Item;
+import net.minecraft.scoreboard.ScorePlayerTeam;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.text.TextFormatting;
@@ -138,6 +139,64 @@ public class CommandTasks extends CommandBase {
                 Msg.send(sender, TextFormatting.YELLOW, "Задача удалена.");
                 return;
             }
+            case "addteam": {
+                EntityPlayerMP self = getCommandSenderAsPlayer(sender);
+                ScorePlayerTeam team = GroupManager.scoreboard(server).getPlayersTeam(self.getName());
+                if (team == null) {
+                    throw new CommandException("Вы не состоите в команде.");
+                }
+                if (args.length < 4) {
+                    throw new WrongUsageException("/task addteam <mine|craft> <item> <amount>");
+                }
+                int type;
+                if ("mine".equalsIgnoreCase(args[1])) {
+                    type = TasksManager.TYPE_MINE;
+                } else if ("craft".equalsIgnoreCase(args[1])) {
+                    type = TasksManager.TYPE_CRAFT;
+                } else {
+                    throw new CommandException("Тип должен быть mine или craft.");
+                }
+                if (Item.getByNameOrId(args[2]) == null) {
+                    throw new CommandException("Неизвестный предмет: " + args[2]);
+                }
+                int amount = parseInt(args[3], 1);
+                if (!TasksManager.addTeamTask(server, team.getName(), type, args[2], amount)) {
+                    throw new CommandException("Слишком много задач (максимум 32).");
+                }
+                Msg.send(sender, TextFormatting.GREEN, "Общая задача добавлена для команды " + team.getName() + ".");
+                return;
+            }
+            case "toggleteam": {
+                if (args.length < 2) {
+                    throw new WrongUsageException("/task toggleteam <n>");
+                }
+                EntityPlayerMP self = getCommandSenderAsPlayer(sender);
+                ScorePlayerTeam team = GroupManager.scoreboard(server).getPlayersTeam(self.getName());
+                if (team == null) {
+                    throw new CommandException("Вы не состоите в команде.");
+                }
+                int index = parseInt(args[1], 0);
+                if (!TasksManager.toggleTeamTask(server, team.getName(), index)) {
+                    throw new CommandException("Нет задачи с таким номером.");
+                }
+                return;
+            }
+            case "removeteam": {
+                if (args.length < 2) {
+                    throw new WrongUsageException("/task removeteam <n>");
+                }
+                EntityPlayerMP self = getCommandSenderAsPlayer(sender);
+                ScorePlayerTeam team = GroupManager.scoreboard(server).getPlayersTeam(self.getName());
+                if (team == null) {
+                    throw new CommandException("Вы не состоите в команде.");
+                }
+                int index = parseInt(args[1], 0);
+                if (!TasksManager.removeTeamTask(server, team.getName(), index)) {
+                    throw new CommandException("Нет задачи с таким номером.");
+                }
+                Msg.send(sender, TextFormatting.YELLOW, "Общая задача удалена.");
+                return;
+            }
             case "clear": {
                 EntityPlayerMP self = getCommandSenderAsPlayer(sender);
                 TasksManager.clear(server, self.getName());
@@ -166,7 +225,7 @@ public class CommandTasks extends CommandBase {
     @Override
     public List<String> getTabCompletions(MinecraftServer server, ICommandSender sender, String[] args, BlockPos pos) {
         if (args.length == 1) {
-            return getListOfStringsMatchingLastWord(args, "add", "additem", "addfor", "toggle", "remove", "clear", "list");
+            return getListOfStringsMatchingLastWord(args, "add", "additem", "addteam", "addfor", "toggle", "toggleteam", "removeteam", "remove", "clear", "list");
         }
         String first = args[0].toLowerCase();
         if (args.length == 2 && ("toggle".equals(first) || "remove".equals(first) || "addfor".equals(first) || "additem".equals(first))) {

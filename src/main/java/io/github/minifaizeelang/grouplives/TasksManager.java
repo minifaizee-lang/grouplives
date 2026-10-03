@@ -49,6 +49,28 @@ public final class TasksManager {
             task.text = text;
             return task;
         }
+
+        public static Task fromNBT(NBTTagCompound tc) {
+            Task task;
+            if (tc.hasKey("Item")) {
+                task = Task.structured(tc.getInteger("Type"), tc.getString("Item"), tc.getInteger("Amount"));
+            } else {
+                task = Task.legacy(tc.getString("Text"));
+            }
+            task.done = tc.getBoolean("Done");
+            return task;
+        }
+
+        public void writeTo(NBTTagCompound tc) {
+            if (type >= 0) {
+                tc.setInteger("Type", type);
+                tc.setString("Item", itemId);
+                tc.setInteger("Amount", amount);
+            } else {
+                tc.setString("Text", text);
+            }
+            tc.setBoolean("Done", done);
+        }
     }
 
     public static class TasksData extends WorldSavedData {
@@ -57,6 +79,9 @@ public final class TasksManager {
 
         /** Keyed by lowercase player name - team membership is name-based too. */
         private final Map<String, List<Task>> tasks = new HashMap<String, List<Task>>();
+
+        /** Shared team boards, keyed by lowercase team name. */
+        private final Map<String, List<Task>> teamBoards = new HashMap<String, List<Task>>();
 
         public TasksData(String name) {
             super(name);
@@ -81,9 +106,25 @@ public final class TasksManager {
             return list;
         }
 
+        public List<Task> getTeam(String teamName) {
+            List<Task> list = teamBoards.get(teamName.toLowerCase());
+            return list == null ? new ArrayList<Task>() : list;
+        }
+
+        private List<Task> mutableTeam(String teamName) {
+            String key = teamName.toLowerCase();
+            List<Task> list = teamBoards.get(key);
+            if (list == null) {
+                list = new ArrayList<Task>();
+                teamBoards.put(key, list);
+            }
+            return list;
+        }
+
         @Override
         public void readFromNBT(NBTTagCompound nbt) {
             tasks.clear();
+            teamBoards.clear();
             NBTTagList players = nbt.getTagList("Players", 10);
             for (int i = 0; i < players.tagCount(); i++) {
                 NBTTagCompound pc = players.getCompoundTagAt(i);
@@ -91,16 +132,20 @@ public final class TasksManager {
                 NBTTagList taskTags = pc.getTagList("Tasks", 10);
                 for (int j = 0; j < taskTags.tagCount(); j++) {
                     NBTTagCompound tc = taskTags.getCompoundTagAt(j);
-                    Task task;
-                    if (tc.hasKey("Item")) {
-                        task = Task.structured(tc.getInteger("Type"), tc.getString("Item"), tc.getInteger("Amount"));
-                    } else {
-                        task = Task.legacy(tc.getString("Text"));
-                    }
-                    task.done = tc.getBoolean("Done");
-                    list.add(task);
+                    list.add(Task.fromNBT(tc));
                 }
                 tasks.put(pc.getString("Name").toLowerCase(), list);
+            }
+            NBTTagList teams = nbt.getTagList("TeamBoards", 10);
+            for (int i = 0; i < teams.tagCount(); i++) {
+                NBTTagCompound pc = teams.getCompoundTagAt(i);
+                List<Task> list = new ArrayList<Task>();
+                NBTTagList taskTags = pc.getTagList("Tasks", 10);
+                for (int j = 0; j < taskTags.tagCount(); j++) {
+                    NBTTagCompound tc = taskTags.getCompoundTagAt(j);
+                    list.add(Task.fromNBT(tc));
+                }
+                teamBoards.put(pc.getString("Team").toLowerCase(), list);
             }
         }
 
@@ -110,24 +155,37 @@ public final class TasksManager {
             for (Map.Entry<String, List<Task>> entry : tasks.entrySet()) {
                 NBTTagCompound pc = new NBTTagCompound();
                 pc.setString("Name", entry.getKey());
-                NBTTagList taskTags = new NBTTagList();
-                for (Task task : entry.getValue()) {
-                    NBTTagCompound tc = new NBTTagCompound();
-                    if (task.type >= 0) {
-                        tc.setInteger("Type", task.type);
-                        tc.setString("Item", task.itemId);
-                        tc.setInteger("Amount", task.amount);
-                    } else {
-                        tc.setString("Text", task.text);
-                    }
-                    tc.setBoolean("Done", task.done);
-                    taskTags.appendTag(tc);
-                }
-                pc.setTag("Tasks", taskTags);
+                pc.setTag("Tasks", writeTaskList(entry.getValue()));
                 players.appendTag(pc);
             }
             compound.setTag("Players", players);
+
+            NBTTagList teamTags = new NBTTagList();
+            for (Map.Entry<String, List<Task>> entry : teamBoards.entrySet()) {
+                NBTTagCompound pc = new NBTTagCompound();
+                pc.setString("Team", entry.getKey());
+                pc.setTag("Tasks", writeTaskList(entry.getValue()));
+                teamTags.appendTag(pc);
+            }
+            compound.setTag("TeamBoards", teamTags);
             return compound;
+        }
+
+        private static NBTTagList writeTaskList(List<Task> list) {
+            NBTTagList taskTags = new NBTTagList();
+            for (Task task : list) {
+                NBTTagCompound tc = new NBTTagCompound();
+                if (task.type >= 0) {
+                    tc.setInteger("Type", task.type);
+                    tc.setString("Item", task.itemId);
+                    tc.setInteger("Amount", task.amount);
+                } else {
+                    tc.setString("Text", task.text);
+                }
+                tc.setBoolean("Done", task.done);
+                taskTags.appendTag(tc);
+            }
+            return taskTags;
         }
     }
 
@@ -192,6 +250,41 @@ public final class TasksManager {
     }
 
     // ------------------------------------------------------------------
+    // Shared team board (visible to and editable by the whole team)
+    // ------------------------------------------------------------------
+
+    public static boolean addTeamTask(MinecraftServer server, String teamName, int type, String itemId, int amount) {
+        List<Task> list = data(server).mutableTeam(teamName);
+        if (list.size() >= MAX_TASKS_PER_PLAYER) {
+            return false;
+        }
+        list.add(Task.structured(type, itemId, amount));
+        syncTeamBoard(server, teamName);
+        return true;
+    }
+
+    public static boolean toggleTeamTask(MinecraftServer server, String teamName, int index) {
+        List<Task> list = data(server).getTeam(teamName);
+        if (index < 0 || index >= list.size()) {
+            return false;
+        }
+        Task task = list.get(index);
+        task.done = !task.done;
+        syncTeamBoard(server, teamName);
+        return true;
+    }
+
+    public static boolean removeTeamTask(MinecraftServer server, String teamName, int index) {
+        List<Task> list = data(server).getTeam(teamName);
+        if (index < 0 || index >= list.size()) {
+            return false;
+        }
+        list.remove(index);
+        syncTeamBoard(server, teamName);
+        return true;
+    }
+
+    // ------------------------------------------------------------------
     // Sync
     // ------------------------------------------------------------------
 
@@ -206,6 +299,18 @@ public final class TasksManager {
 
     public static PacketTeamTasks buildBoard(MinecraftServer server, List<String> members) {
         List<PacketTeamTasks.Entry> entries = new ArrayList<PacketTeamTasks.Entry>();
+        // Shared team board comes first
+        if (!members.isEmpty()) {
+            ScorePlayerTeam team = GroupManager.scoreboard(server).getPlayersTeam(members.get(0));
+            if (team != null) {
+                List<Task> shared = data(server).getTeam(team.getName());
+                for (int i = 0; i < shared.size(); i++) {
+                    Task task = shared.get(i);
+                    entries.add(new PacketTeamTasks.Entry(PacketTeamTasks.TEAM_MARKER, i,
+                            task.type, task.itemId, task.amount, task.text, task.done));
+                }
+            }
+        }
         for (String member : members) {
             List<Task> list = data(server).get(member);
             for (int i = 0; i < list.size(); i++) {
@@ -215,6 +320,16 @@ public final class TasksManager {
             }
         }
         return new PacketTeamTasks(entries);
+    }
+
+    /** Sends the board of a specific team (shared board + member boards) to every online member. */
+    public static void syncTeamBoard(MinecraftServer server, String teamName) {
+        ScorePlayerTeam team = GroupManager.scoreboard(server).getTeam(teamName);
+        if (team == null) {
+            return;
+        }
+        List<String> members = new ArrayList<String>(team.getMembershipCollection());
+        sendTo(server, buildBoard(server, members), members);
     }
 
     /** Sends the board of playerName's team to every online member of that team. */

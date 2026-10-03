@@ -1,6 +1,7 @@
 package io.github.minifaizeelang.grouplives.client;
 
 import io.github.minifaizeelang.grouplives.GroupLivesMod;
+import io.github.minifaizeelang.grouplives.network.PacketTeamTasks;
 import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.GuiScreen;
@@ -47,8 +48,8 @@ public class GuiTeamTasks extends GuiScreen {
 
     private final GuiScreen parentScreen;
 
-    private List<String> members = new ArrayList<String>();
-    private int memberIndex;
+    private List<String> assignTargets = new ArrayList<String>();
+    private int assignIndex;
     private int actionType; // 0 = mine, 1 = craft
     private GuiTextField searchField;
     private GuiTextField amountField;
@@ -67,8 +68,9 @@ public class GuiTeamTasks extends GuiScreen {
         final int x, y, w, h, index;
         final String player;
         final boolean mine;
+        final boolean team;
 
-        BoardRow(int x, int y, int w, int h, String player, int index, boolean mine) {
+        BoardRow(int x, int y, int w, int h, String player, int index, boolean mine, boolean team) {
             this.x = x;
             this.y = y;
             this.w = w;
@@ -76,6 +78,7 @@ public class GuiTeamTasks extends GuiScreen {
             this.player = player;
             this.index = index;
             this.mine = mine;
+            this.team = team;
         }
     }
 
@@ -123,9 +126,11 @@ public class GuiTeamTasks extends GuiScreen {
         int gridBottom = this.panelY + this.panelH - 64;
         this.gridRows = Math.max(2, (gridBottom - this.gridY) / 19);
 
-        this.members = onlineTeamMembers();
-        if (this.memberIndex >= this.members.size()) {
-            this.memberIndex = 0;
+        this.assignTargets = new ArrayList<String>();
+        this.assignTargets.add("Вся команда");
+        this.assignTargets.addAll(onlineTeamMembers());
+        if (this.assignIndex >= this.assignTargets.size()) {
+            this.assignIndex = 0;
         }
 
         if (hasTeam()) {
@@ -138,7 +143,7 @@ public class GuiTeamTasks extends GuiScreen {
             this.amountField.setValidator(s -> s.isEmpty() || s.matches("\\d{1,5}"));
             this.amountField.setEnableBackgroundDrawing(false);
 
-            this.buttonList.add(makeCycleButton(ID_MEMBER_CYCLE, panelY + 16, "Кому: " + this.members.get(this.memberIndex), 0xFF5B8FFB));
+            this.buttonList.add(makeCycleButton(ID_MEMBER_CYCLE, panelY + 16, "Кому: " + this.assignTargets.get(this.assignIndex), 0xFF5B8FFB));
             this.buttonList.add(makeCycleButton(ID_ACTION_CYCLE, panelY + 34, "Действие: " + (actionType == 0 ? "ДОБЫТЬ" : "СКРАФТИТЬ"), 0xFF7CC24A));
             this.buttonList.add(new ThemeButton(ID_SCROLL_UP, panelX() + panelW() - 26, panelY + 52, 22, 7, "^"));
             this.buttonList.add(new ThemeButton(ID_SCROLL_DOWN, panelX() + panelW() - 26, panelY + 59, 22, 7, "v"));
@@ -315,7 +320,8 @@ public class GuiTeamTasks extends GuiScreen {
                 break;
             }
             List<ClientState.TaskEntry> tasks = entry.getValue();
-            NetworkPlayerInfo info = mc.getConnection() != null
+            boolean teamBoard = entry.getKey().equals(PacketTeamTasks.TEAM_MARKER);
+            NetworkPlayerInfo info = !teamBoard && mc.getConnection() != null
                     ? mc.getConnection().getPlayerInfo(entry.getKey()) : null;
             if (info != null) {
                 mc.getTextureManager().bindTexture(info.getLocationSkin());
@@ -331,7 +337,9 @@ public class GuiTeamTasks extends GuiScreen {
                     done++;
                 }
             }
-            this.fontRenderer.drawStringWithShadow(entry.getKey(), x + 23, ry + 2, 0xFFF5F2F7);
+            String boardTitle = teamBoard ? "★ Вся команда" : entry.getKey();
+            this.fontRenderer.drawStringWithShadow(boardTitle, x + 23, ry + 2,
+                    teamBoard ? UiTheme.YELLOW : 0xFFF5F2F7);
             String counter = done + "/" + tasks.size();
             this.fontRenderer.drawStringWithShadow(counter,
                     x + w - 8 - this.fontRenderer.getStringWidth(counter), ry + 2, 0xFFE8B33C);
@@ -339,6 +347,7 @@ public class GuiTeamTasks extends GuiScreen {
 
             for (ClientState.TaskEntry task : tasks) {
                 boolean mine = this.mc.player != null && task.player.equals(this.mc.player.getName());
+                boolean shared = teamBoard;
                 int rowH = task.type >= 0 ? 18 : 11;
                 if (ry + rowH > bottom - 2) {
                     this.fontRenderer.drawStringWithShadow("...", x + 14, ry, 0xFF6E6480);
@@ -354,11 +363,11 @@ public class GuiTeamTasks extends GuiScreen {
                 String text = TaskHud.taskText(task);
                 this.fontRenderer.drawStringWithShadow(truncate(text, w - 60), x + 22, ry + (rowH == 18 ? 5 : 1),
                         task.done ? 0xFF6E6480 : 0xFFF5F2F7);
-                if (mine) {
+                if (mine || shared) {
                     this.fontRenderer.drawStringWithShadow("X",
                             x + w - 16, ry + (rowH == 18 ? 5 : 1), 0xFFD0483C);
                 }
-                boardRows.add(new BoardRow(x + 8, ry, w - 16, rowH, task.player, task.index, mine));
+                boardRows.add(new BoardRow(x + 8, ry, w - 16, rowH, task.player, task.index, mine || shared, shared));
                 ry += rowH;
             }
             ry += 3;
@@ -440,9 +449,9 @@ public class GuiTeamTasks extends GuiScreen {
                 this.mc.displayGuiScreen(this.parentScreen);
                 return;
             case ID_MEMBER_CYCLE:
-                if (!members.isEmpty()) {
-                    memberIndex = (memberIndex + 1) % members.size();
-                    button.displayString = truncate("Кому: " + members.get(memberIndex), panelW() - 30);
+                if (!assignTargets.isEmpty()) {
+                    assignIndex = (assignIndex + 1) % assignTargets.size();
+                    button.displayString = truncate("Кому: " + assignTargets.get(assignIndex), panelW() - 30);
                 }
                 return;
             case ID_ACTION_CYCLE:
@@ -462,11 +471,16 @@ public class GuiTeamTasks extends GuiScreen {
                 setAmount(amount() + 1);
                 return;
             case ID_ADD: {
-                if (members.isEmpty() || selectedItemId == null) {
+                if (assignTargets.isEmpty() || selectedItemId == null) {
                     return;
                 }
-                sendCommand("/task additem " + members.get(memberIndex) + " "
-                        + (actionType == 0 ? "mine" : "craft") + " " + selectedItemId + " " + amount());
+                String target = assignTargets.get(assignIndex);
+                if (target.equals("Вся команда")) {
+                    sendCommand("/task addteam " + (actionType == 0 ? "mine" : "craft") + " " + selectedItemId + " " + amount());
+                } else {
+                    sendCommand("/task additem " + target + " "
+                            + (actionType == 0 ? "mine" : "craft") + " " + selectedItemId + " " + amount());
+                }
                 return;
             }
             default:
@@ -509,17 +523,22 @@ public class GuiTeamTasks extends GuiScreen {
             }
         }
 
-        // Board rows: own rows toggle (whole row) and X zone removes; other players' rows are read-only
+        // Board rows: shared team rows toggle/remove for anyone; own rows toggle/remove; others read-only
         if (mouseButton == 0 && mc.player != null) {
             for (BoardRow row : boardRows) {
                 if (mouseX >= row.x && mouseX <= row.x + row.w && mouseY >= row.y && mouseY <= row.y + row.h) {
-                    if (!row.mine) {
-                        return;
-                    }
-                    if (mouseX > row.x + row.w - 14) {
-                        sendCommand("/task remove " + row.player + " " + row.index);
-                    } else {
-                        sendCommand("/task toggle " + row.player + " " + row.index);
+                    if (row.team) {
+                        if (mouseX > row.x + row.w - 14) {
+                            sendCommand("/task removeteam " + row.index);
+                        } else {
+                            sendCommand("/task toggleteam " + row.index);
+                        }
+                    } else if (row.mine) {
+                        if (mouseX > row.x + row.w - 14) {
+                            sendCommand("/task remove " + row.player + " " + row.index);
+                        } else {
+                            sendCommand("/task toggle " + row.player + " " + row.index);
+                        }
                     }
                     return;
                 }

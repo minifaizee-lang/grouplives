@@ -2,6 +2,7 @@ package io.github.minifaizeelang.grouplives.client;
 
 import io.github.minifaizeelang.grouplives.GroupLivesMod;
 import io.github.minifaizeelang.grouplives.ModConfig;
+import io.github.minifaizeelang.grouplives.network.PacketTeamTasks;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.GuiChat;
@@ -39,8 +40,9 @@ public final class TaskHud {
         final int x, y, w, h, index;
         final String player;
         final boolean mine;
+        final boolean team;
 
-        Row(int x, int y, int w, int h, String player, int index, boolean mine) {
+        Row(int x, int y, int w, int h, String player, int index, boolean mine, boolean team) {
             this.x = x;
             this.y = y;
             this.w = w;
@@ -48,6 +50,7 @@ public final class TaskHud {
             this.player = player;
             this.index = index;
             this.mine = mine;
+            this.team = team;
         }
     }
 
@@ -206,7 +209,12 @@ public final class TaskHud {
                     panelX + PANEL_W - 8 - mc.fontRenderer.getStringWidth(counter), ry + 2, 0xFFE8B33C);
             ry += 14;
 
-            boolean minePlayer = mc.player != null && entry.getKey().equals(mc.player.getName());
+            boolean minePlayer = mc.player != null && (entry.getKey().equals(mc.player.getName())
+                    || entry.getKey().equals(PacketTeamTasks.TEAM_MARKER));
+            boolean teamBoard = entry.getKey().equals(PacketTeamTasks.TEAM_MARKER);
+            String boardTitle = teamBoard ? "★ КОМАНДА" : entry.getKey();
+            mc.fontRenderer.drawStringWithShadow(boardTitle, panelX + 22, ry + 2,
+                    teamBoard ? UiTheme.YELLOW : 0xFFF5F2F7);
             for (ClientState.TaskEntry task : tasks) {
                 if (ry + 10 > bottom) {
                     mc.fontRenderer.drawStringWithShadow("...", panelX + 14, ry, 0xFF6E6480);
@@ -225,7 +233,7 @@ public final class TaskHud {
                 mc.fontRenderer.drawStringWithShadow(truncate(mc, text, PANEL_W - 36), panelX + 22, ry,
                         task.done ? 0xFF6E6480 : 0xFFF5F2F7);
                 if (interactive) {
-                    rows.add(new Row(panelX + 8, ry - 1, PANEL_W - 16, 11, task.player, task.index, mine));
+                    rows.add(new Row(panelX + 8, ry - 1, PANEL_W - 16, 11, task.player, task.index, mine, teamBoard));
                 }
                 ry += 10;
             }
@@ -270,15 +278,19 @@ public final class TaskHud {
     // Chat interaction: click own task to mark, drag anywhere else to move
     // ------------------------------------------------------------------
 
-    /** Marks a clicked own task; returns true when one was hit. */
-    private static boolean hitOwnTask(Minecraft mc, int mouseX, int mouseY) {
+    /** Marks a clicked own task or a shared team task; returns true when one was hit. */
+    public static boolean handlePanelClick(Minecraft mc, int mouseX, int mouseY) {
         for (Row row : rows) {
             if (!row.mine) {
                 continue;
             }
             if (mouseX >= row.x && mouseX <= row.x + row.w && mouseY >= row.y && mouseY <= row.y + row.h) {
                 if (mc.player != null) {
-                    mc.player.sendChatMessage("/task toggle " + row.player + " " + row.index);
+                    if (row.team) {
+                        mc.player.sendChatMessage("/task toggleteam " + row.index);
+                    } else {
+                        mc.player.sendChatMessage("/task toggle " + row.player + " " + row.index);
+                    }
                 }
                 return true;
             }
@@ -303,7 +315,7 @@ public final class TaskHud {
         int my = mc.currentScreen.height - Mouse.getEventY() * mc.currentScreen.height / mc.displayHeight - 1;
 
         if (pressed && button == 0 && inPanel(mx, my)) {
-            if (hitOwnTask(mc, mx, my)) {
+            if (handlePanelClick(mc, mx, my)) {
                 event.setCanceled(true);
                 return;
             }

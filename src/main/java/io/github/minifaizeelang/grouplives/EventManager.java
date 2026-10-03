@@ -2,15 +2,20 @@ package io.github.minifaizeelang.grouplives;
 
 import net.minecraft.command.ICommandSender;
 import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.NBTTagList;
 import net.minecraft.scoreboard.ScorePlayerTeam;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.text.TextFormatting;
 import net.minecraft.world.WorldServer;
 import net.minecraft.world.border.WorldBorder;
+import net.minecraft.world.storage.WorldSavedData;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 
 /**
@@ -143,9 +148,84 @@ public final class EventManager {
                 player.setSpawnPoint(new BlockPos(x + offset[0], y, z + offset[1]), true);
             }
 
+            // Remember the team base: members who were offline during the scatter
+            // get the same respawn point when they log in.
+            bases(server).setBase(team.getName(), new BlockPos(x, y, z));
+
             report.append(team.getName()).append(" -> ").append((int) x).append(", ").append((int) z)
                     .append(" (").append(members.size()).append(" players); ");
         }
         Msg.send(feedbackTo, TextFormatting.GREEN, "Teams scattered: " + report);
+    }
+
+    /** Sets the player's respawn point to their team base, if one was recorded. */
+    public static void applyTeamSpawn(MinecraftServer server, EntityPlayerMP player) {
+        ScorePlayerTeam team = GroupManager.scoreboard(server).getPlayersTeam(player.getName());
+        if (team == null) {
+            return;
+        }
+        BlockPos base = bases(server).getBase(team.getName());
+        if (base != null) {
+            player.setSpawnPoint(base, true);
+        }
+    }
+
+    private static BaseData bases(MinecraftServer server) {
+        BaseData data = (BaseData) server.getEntityWorld().getMapStorage()
+                .getOrLoadData(BaseData.class, BaseData.DATA_NAME);
+        if (data == null) {
+            data = new BaseData();
+            server.getEntityWorld().getMapStorage().setData(BaseData.DATA_NAME, data);
+        }
+        return data;
+    }
+
+    /** Persisted team drop locations (team name -> base position). */
+    public static class BaseData extends WorldSavedData {
+
+        public static final String DATA_NAME = "grouplives_bases";
+
+        private final Map<String, BlockPos> bases = new HashMap<String, BlockPos>();
+
+        public BaseData(String name) {
+            super(name);
+        }
+
+        public BaseData() {
+            super(DATA_NAME);
+        }
+
+        public void setBase(String teamName, BlockPos pos) {
+            bases.put(teamName.toLowerCase(), pos);
+            markDirty();
+        }
+
+        public BlockPos getBase(String teamName) {
+            return bases.get(teamName.toLowerCase());
+        }
+
+        @Override
+        public void readFromNBT(NBTTagCompound nbt) {
+            bases.clear();
+            NBTTagList list = nbt.getTagList("Bases", 10);
+            for (int i = 0; i < list.tagCount(); i++) {
+                NBTTagCompound tag = list.getCompoundTagAt(i);
+                bases.put(tag.getString("Team").toLowerCase(),
+                        BlockPos.fromLong(tag.getLong("Pos")));
+            }
+        }
+
+        @Override
+        public NBTTagCompound writeToNBT(NBTTagCompound compound) {
+            NBTTagList list = new NBTTagList();
+            for (Map.Entry<String, BlockPos> entry : bases.entrySet()) {
+                NBTTagCompound tag = new NBTTagCompound();
+                tag.setString("Team", entry.getKey());
+                tag.setLong("Pos", entry.getValue().toLong());
+                list.appendTag(tag);
+            }
+            compound.setTag("Bases", list);
+            return compound;
+        }
     }
 }

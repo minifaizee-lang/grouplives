@@ -31,6 +31,7 @@ public final class ModEvents {
         LivesManager.onLogin(player.mcServer, player);
         GroupManager.sendAllTabNamesTo(player.mcServer, player);
         GroupManager.updateTabName(player.mcServer, player);
+        EventManager.applyTeamSpawn(player.mcServer, player);
     }
 
     /**

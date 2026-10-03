@@ -22,7 +22,7 @@ public class GroupLivesMod {
 
     public static final String MODID = "grouplives";
     public static final String NAME = "Groups & Lives";
-    public static final String VERSION = "2.1.0";
+    public static final String VERSION = "2.1.1";
 
     private static Logger logger;
 
